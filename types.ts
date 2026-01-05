@@ -95,7 +95,7 @@ export interface LogEntry {
   id: number;
   timestamp: string;
   message: string;
-  type: 'info' | 'success' | 'warning' | 'error' | 'system' | 'phase';
+  type: 'info' | 'success' | 'warning' | 'error' | 'system' | 'phase' | 'bounty' | 'story';
 }
 
 export interface Target {
@@ -119,14 +119,58 @@ export interface VaultRoom {
 }
 
 export type PlayerActivity = 'HACKING' | 'JOB' | 'SLEEPING' | 'DOWNTIME';
+export type EconomyState = 'RECESSION' | 'STABLE' | 'BOOM';
 
 export interface CorpData {
     name: string;
+    code: string;
     reputation: number; // 0-1000
     trace: number; // 0-100 (Hidden risk)
     stockPrice: number;
     stockTrend: number; // -1 to 1
     ownedShares: number;
+    desc: string;
+}
+
+export interface Faction {
+    id: string;
+    name: string;
+    description: string;
+    tooltip: string;
+    reputation: number;
+    isHostile: boolean;
+}
+
+export interface Bounty {
+    id: string;
+    targetCorp: string; // Parent corp name
+    description: string;
+    reward: number;
+    expiresAt: number;
+    type: 'SCOUT' | 'EXTRACT' | 'DISRUPT';
+}
+
+export interface TechniqueDetail {
+    id: string;
+    name: string;
+    description: string;
+    mitigation: string;
+}
+
+export interface Message {
+    id: string;
+    sender: string;
+    subject: string;
+    body: string;
+    read: boolean;
+    date: string;
+}
+
+export interface Achievement {
+    id: string;
+    name: string;
+    description: string;
+    unlocked: boolean;
 }
 
 export interface GameState {
@@ -135,11 +179,23 @@ export interface GameState {
   level: number;
   job: Job | null;
   playerName: string;
+  employer: string;
   
   // Time System
   gameTime: number; // Timestamp
   gameSpeed: number; // Multiplier
   currentActivity: PlayerActivity;
+
+  // Career & Economy
+  jobLevel: number; // 1 to 10
+  economyState: EconomyState;
+  lastYearChecked: number;
+  globalRadiation: number; // 0-100 Environmental Stat
+  
+  // Lifestyle & Bounties
+  lifestyleLevel: number;
+  lastRentPaidDay: number; // Day of year
+  activeBounties: Bounty[];
 
   // Stats
   special: Special;
@@ -152,7 +208,7 @@ export interface GameState {
   hackingProgress: number; 
   isAutoHacking: boolean;
   heat: number; // 0 to 100
-  riskLevel: number; // 1 to 6
+  threatLevel: number; // 1 to 6 (Renamed from Risk)
   isDowntime: boolean; // Heat lockout
   downtimeEndTime: number;
 
@@ -160,11 +216,12 @@ export interface GameState {
   software: Software[];
   unlockables: Unlockable[];
   
-  // Vault
+  // Vault / Bunker
   vaultLevels: Record<string, number>; // Room ID -> Level
 
   // Market & Corps
   corporations: Record<string, CorpData>;
+  factions: Record<string, Faction>;
   marketLastUpdate: number;
 
   // Automation
@@ -172,7 +229,13 @@ export interface GameState {
   autoBuySoftware: boolean;
 
   logs: LogEntry[];
+  messages: Message[];
+  achievements: Achievement[];
   totalHacks: number;
   techniqueCounts: Record<string, number>;
   currentTarget: Target;
+  
+  // Meta
+  uiColor: string;
+  tutorialStep: number; // 0 = done
 }
