@@ -86,7 +86,8 @@ export interface ThreatActor {
 }
 
 export interface KillChainPhase {
-  name: string;
+  id: string; // e.g. "reconnaissance"
+  name: string; // e.g. "Reconnaissance"
   threshold: number; 
   techniques: string[];
 }
@@ -155,6 +156,9 @@ export interface TechniqueDetail {
     name: string;
     description: string;
     mitigation: string;
+    subtechniques?: string[]; // IDs of subtechniques
+    isSubtechnique?: boolean;
+    parent?: string;
 }
 
 export interface Message {
@@ -270,16 +274,20 @@ export interface GameState {
   // Automation
   autoBuyHardware: boolean;
   autoBuySoftware: boolean;
+  autoBuyConsumables: boolean; // New
 
   logs: LogEntry[];
   messages: Message[];
   achievements: Achievement[];
   totalHacks: number;
   techniqueCounts: Record<string, number>;
+  techniqueLastSeen: Record<string, string>; // New: timestamp string
   currentTarget: Target;
   
   // Items & Status
   inventory: Record<string, number>; // itemId -> count
+  shopStock: Record<string, number>; // itemId -> count (NEW)
+  lastRestockDay: number; // NEW
   activeEffects: ActiveEffect[];
   mutations: string[]; // Mutation IDs
   playerRadiation: number; // 0-1000, affects stats/max heat

@@ -310,44 +310,92 @@ export const INITIAL_UNLOCKABLES: Unlockable[] = [
 ];
 
 export const KILL_CHAIN_PHASES: KillChainPhase[] = [
-  { name: "Reconnaissance", threshold: 0, techniques: ["T1595 Active Scanning", "T1592 Victim Host Info", "T1593 Search Open Websites", "T1589 Gather Identity Info"] },
-  { name: "Resource Development", threshold: 14, techniques: ["T1583 Acquire Infrastructure", "T1588 Obtain Capabilities", "T1587 Develop Capabilities", "T1584 Compromise Infrastructure"] },
-  { name: "Initial Access", threshold: 28, techniques: ["T1190 Exploit Public App", "T1566 Phishing", "T1133 External Remote Services", "T1078 Valid Accounts"] },
-  { name: "Execution", threshold: 42, techniques: ["T1059 Command Interpreter", "T1203 Client Execution", "T1053 Scheduled Task", "T1106 Native API"] },
-  { name: "Persistence", threshold: 56, techniques: ["T1547 Boot Autostart", "T1098 Account Manipulation", "T1543 Modify System Process", "T1136 Create Account"] },
-  { name: "Privilege Escalation", threshold: 70, techniques: ["T1068 Privilege Escalation", "T1548 Abuse Elevation Control", "T1055 Process Injection", "T1484 Domain Policy"] },
-  { name: "Command & Control", threshold: 84, techniques: ["T1071 App Layer Protocol", "T1573 Encrypted Channel", "T1008 Fallback Channels", "T1105 Ingress Tool Transfer"] },
+  { 
+      id: "reconnaissance", name: "Reconnaissance", threshold: 0, 
+      techniques: ["T1595", "T1592", "T1593", "T1589", "T1596", "T1590", "T1591", "T1597", "T1598"] 
+  },
+  { 
+      id: "resource-development", name: "Resource Development", threshold: 14, 
+      techniques: ["T1583", "T1584", "T1586", "T1608", "T1585", "T1588", "T1587"] 
+  },
+  { 
+      id: "initial-access", name: "Initial Access", threshold: 28, 
+      techniques: ["T1195", "T1566", "T1078"] 
+  },
+  { 
+      id: "execution", name: "Execution", threshold: 42, 
+      techniques: ["T1053", "T1059", "T1204", "T1559", "T1569"] 
+  },
+  { 
+      id: "persistence", name: "Persistence", threshold: 56, 
+      techniques: ["T1037", "T1543", "T1547", "T1137", "T1053", "T1176", "T1205", "T1542", "T1098", "T1574", "T1078", "T1546", "T1556", "T1505", "T1136"] 
+  },
+  { 
+      id: "privilege-escalation", name: "Privilege Escalation", threshold: 70, 
+      techniques: ["T1037", "T1543", "T1547", "T1053", "T1055", "T1548", "T1098", "T1574", "T1078", "T1546", "T1134", "T1484"] 
+  },
+  { 
+      id: "defense-evasion", name: "Defense Evasion", threshold: 75,
+      techniques: ["T1578", "T1600", "T1564", "T1562", "T1036", "T1055", "T1205", "T1218", "T1550", "T1222", "T1548", "T1070", "T1542", "T1497", "T1480", "T1601", "T1574", "T1078", "T1027", "T1599", "T1553", "T1134", "T1484", "T1556", "T1216", "T1127"]
+  },
+  { 
+      id: "credential-access", name: "Credential Access", threshold: 80,
+      techniques: ["T1557", "T1003", "T1558", "T1555", "T1552", "T1606", "T1110", "T1056", "T1556"]
+  },
+  {
+      id: "discovery", name: "Discovery", threshold: 85,
+      techniques: ["T1069", "T1016", "T1087", "T1497", "T1614", "T1518"]
+  },
+  {
+      id: "lateral-movement", name: "Lateral Movement", threshold: 88,
+      techniques: ["T1550", "T1021", "T1563"]
+  },
+  {
+      id: "collection", name: "Collection", threshold: 90,
+      techniques: ["T1557", "T1602", "T1114", "T1560", "T1074", "T1056", "T1213"]
+  },
+  { 
+      id: "command-and-control", name: "Command & Control", threshold: 92, 
+      techniques: ["T1071", "T1219", "T1205", "T1090", "T1568", "T1102", "T1001", "T1573", "T1132"] 
+  },
+  {
+      id: "exfiltration", name: "Exfiltration", threshold: 95,
+      techniques: ["T1567", "T1011", "T1020", "T1048", "T1052"]
+  },
+  {
+      id: "impact", name: "Impact", threshold: 98,
+      techniques: ["T1561", "T1491", "T1565", "T1499", "T1496", "T1485", "T1498"]
+  }
 ];
 
 export const TECHNIQUE_DETAILS: Record<string, TechniqueDetail> = {
-    "T1595 Active Scanning": { id: "T1595", name: "Active Scanning", description: "Adversaries may probe victim infrastructure via network traffic to identify hosts, open ports, and services.", mitigation: "Use firewalls and IPS to detect scanning activity." },
-    "T1592 Victim Host Info": { id: "T1592", name: "Gather Victim Host Information", description: "Adversaries may gather information about the victim's hosts, such as administrative names, hostnames, and software versions.", mitigation: "Limit public exposure of system information headers." },
-    "T1593 Search Open Websites": { id: "T1593", name: "Search Open Websites/Domains", description: "Adversaries may search freely available websites/domains for information about victims (OSINT).", mitigation: "Monitor public footprint and remove sensitive data." },
-    "T1589 Gather Identity Info": { id: "T1589", name: "Gather Victim Identity Information", description: "Adversaries may gather information about identities, such as employee names and emails, to target via Phishing.", mitigation: "Employee training on social engineering." },
-    "T1583 Acquire Infrastructure": { id: "T1583", name: "Acquire Infrastructure", description: "Adversaries may buy, lease, or rent infrastructure (domains, servers) to stage attacks.", mitigation: "Monitor for newly registered domains similar to yours." },
-    "T1588 Obtain Capabilities": { id: "T1588", name: "Obtain Capabilities", description: "Adversaries may buy or steal software, exploits, or certificates to use during targeting.", mitigation: "Patch management to reduce effectiveness of bought exploits." },
-    "T1587 Develop Capabilities": { id: "T1587", name: "Develop Capabilities", description: "Adversaries may develop their own malware or exploits to evade detection.", mitigation: "Behavioral analysis and heuristics detection." },
-    "T1584 Compromise Infrastructure": { id: "T1584", name: "Compromise Infrastructure", description: "Adversaries may compromise third-party infrastructure (like waterholes) to support their operations.", mitigation: "Vulnerability scanning of all external facing assets." },
-    "T1190 Exploit Public App": { id: "T1190", name: "Exploit Public-Facing Application", description: "Adversaries may attempt to take advantage of a weakness in an Internet-facing computer or program using software, data, or commands in order to cause unintended or unanticipated behavior.", mitigation: "Regular patching and Web Application Firewalls (WAF)." },
-    "T1566 Phishing": { id: "T1566", name: "Phishing", description: "Adversaries may send phishing messages to gain access to victim systems.", mitigation: "User training, SPF/DKIM/DMARC, and email filtering." },
-    "T1133 External Remote Services": { id: "T1133", name: "External Remote Services", description: "Adversaries may leverage external-facing remote services (VPN, RDP) to initially access and/or persist within a network.", mitigation: "MFA, disable RDP exposure, VPN concentration." },
-    "T1078 Valid Accounts": { id: "T1078", name: "Valid Accounts", description: "Adversaries may obtain and abuse credentials of existing accounts as a means of gaining Initial Access, Persistence, Privilege Escalation, or Defense Evasion.", mitigation: "MFA, Credential Hygiene, Least Privilege." },
-    "T1059 Command Interpreter": { id: "T1059", name: "Command and Scripting Interpreter", description: "Adversaries may abuse command and script interpreters (PowerShell, Bash) to execute commands, scripts, or binaries.", mitigation: "Disable unnecessary interpreters, script signing, logging." },
-    "T1203 Client Execution": { id: "T1203", name: "Exploitation for Client Execution", description: "Adversaries may exploit software vulnerabilities in client applications (browsers, office) to execute code.", mitigation: "Application whitelisting and patching." },
-    "T1053 Scheduled Task": { id: "T1053", name: "Scheduled Task/Job", description: "Adversaries may abuse task scheduling functionality to facilitate initial or recurring execution of malicious code.", mitigation: "Monitor creation of new scheduled tasks." },
-    "T1106 Native API": { id: "T1106", name: "Native API", description: "Adversaries may interact directly with the OS API to execute behaviors, bypassing high-level logging.", mitigation: "EDR monitoring of API calls." },
-    "T1547 Boot Autostart": { id: "T1547", name: "Boot or Logon Autostart Execution", description: "Adversaries may configure settings to automatically execute programs on system boot or logon.", mitigation: "Monitor registry run keys and startup folders." },
-    "T1098 Account Manipulation": { id: "T1098", name: "Account Manipulation", description: "Adversaries may manipulate accounts to maintain access to victim systems.", mitigation: "Monitor for changes to account groups or permissions." },
-    "T1543 Modify System Process": { id: "T1543", name: "Create or Modify System Process", description: "Adversaries may create or modify system-level processes to repeatedly execute malicious payloads.", mitigation: "File integrity monitoring on system binaries." },
-    "T1136 Create Account": { id: "T1136", name: "Create Account", description: "Adversaries may create a new account to maintain access to victim systems.", mitigation: "Audit logs for account creation events." },
-    "T1068 Privilege Escalation": { id: "T1068", name: "Exploitation for Privilege Escalation", description: "Adversaries may exploit software vulnerabilities to elevate privileges.", mitigation: "Patching and Least Privilege." },
-    "T1548 Abuse Elevation Control": { id: "T1548", name: "Abuse Elevation Control Mechanism", description: "Adversaries may circumvent mechanisms designed to control elevation of privileges (like UAC or sudo).", mitigation: "Set UAC to 'Always Notify', restrict sudoers." },
-    "T1055 Process Injection": { id: "T1055", name: "Process Injection", description: "Adversaries may inject code into processes in order to evade process-based defenses as well as possibly elevate privileges.", mitigation: "Endpoint protection (EDR) and memory protection." },
-    "T1484 Domain Policy": { id: "T1484", name: "Domain Policy Modification", description: "Adversaries may modify domain-level policies (Group Policy) to gain persistence or escalate privileges.", mitigation: "Strict controls on GPO modification access." },
-    "T1071 App Layer Protocol": { id: "T1071", name: "Application Layer Protocol", description: "Adversaries may communicate using common application layer protocols (HTTP, DNS) to avoid detection.", mitigation: "Network traffic analysis and protocol anomaly detection." },
-    "T1573 Encrypted Channel": { id: "T1573", name: "Encrypted Channel", description: "Adversaries may employ a known encryption algorithm to conceal command and control traffic.", mitigation: "SSL Inspection where feasible." },
-    "T1008 Fallback Channels": { id: "T1008", name: "Fallback Channels", description: "Adversaries may use fallback command and control channels if the primary channel is compromised.", mitigation: "Defense in depth." },
-    "T1105 Ingress Tool Transfer": { id: "T1105", name: "Ingress Tool Transfer", description: "Adversaries may transfer tools or other files from an external system into a compromised environment.", mitigation: "Network filtering and block download of executable types." }
+    "T1595": { id: "T1595", name: "Active Scanning", description: "Adversaries may probe victim infrastructure via network traffic.", mitigation: "Use firewalls and IPS.", subtechniques: ["T1595.001", "T1595.002"] },
+    "T1595.001": { id: "T1595.001", name: "Scanning IP Blocks", description: "Scanning entire IP blocks for hosts.", mitigation: "Monitor for sequential scan patterns.", isSubtechnique: true, parent: "T1595" },
+    "T1595.002": { id: "T1595.002", name: "Vulnerability Scanning", description: "Scanning for known vulnerabilities.", mitigation: "Regular patching.", isSubtechnique: true, parent: "T1595" },
+    "T1592": { id: "T1592", name: "Gather Victim Host Information", description: "Gathering info about administrative names, hostnames, etc.", mitigation: "Limit public exposure." },
+    "T1593": { id: "T1593", name: "Search Open Websites", description: "Searching open websites for info.", mitigation: "Monitor public footprint." },
+    "T1589": { id: "T1589", name: "Gather Identity Info", description: "Gathering info about identities.", mitigation: "Employee training." },
+    "T1583": { id: "T1583", name: "Acquire Infrastructure", description: "Buying/leasing infrastructure.", mitigation: "Monitor new domains." },
+    "T1588": { id: "T1588", name: "Obtain Capabilities", description: "Buying tools or exploits.", mitigation: "Patching." },
+    "T1587": { id: "T1587", name: "Develop Capabilities", description: "Developing malware/exploits.", mitigation: "Behavioral analysis." },
+    "T1195": { id: "T1195", name: "Supply Chain Compromise", description: "Manipulating products/delivery mechanisms.", mitigation: "Vendor risk management." },
+    "T1566": { id: "T1566", name: "Phishing", description: "Sending phishing messages.", mitigation: "User training." },
+    "T1078": { id: "T1078", name: "Valid Accounts", description: "Abusing existing accounts.", mitigation: "MFA." },
+    "T1059": { id: "T1059", name: "Command and Scripting Interpreter", description: "Abusing interpreters.", mitigation: "Disable unnecessary interpreters." },
+    "T1053": { id: "T1053", name: "Scheduled Task/Job", description: "Abusing task scheduling.", mitigation: "Monitor task creation." },
+    "T1037": { id: "T1037", name: "Boot or Logon Initialization Scripts", description: "Using scripts at boot/logon.", mitigation: "Monitor script locations." },
+    "T1547": { id: "T1547", name: "Boot or Logon Autostart Execution", description: "Configuring settings for auto-execution.", mitigation: "Monitor registry run keys." },
+    "T1098": { id: "T1098", name: "Account Manipulation", description: "Manipulating accounts.", mitigation: "Monitor account changes." },
+    "T1543": { id: "T1543", name: "Create or Modify System Process", description: "Creating/modifying system processes.", mitigation: "File integrity monitoring." },
+    "T1055": { id: "T1055", name: "Process Injection", description: "Injecting code into processes.", mitigation: "EDR." },
+    "T1071": { id: "T1071", name: "Application Layer Protocol", description: "Using common protocols for C2.", mitigation: "Protocol anomaly detection." },
+    "T1003": { id: "T1003", name: "OS Credential Dumping", description: "Dumping credentials from memory.", mitigation: "Credential Guard." },
+    "T1557": { id: "T1557", name: "Adversary-in-the-Middle", description: "Intercepting communications.", mitigation: "Encryption." },
+    "T1562": { id: "T1562", name: "Impair Defenses", description: "Disabling security tools.", mitigation: "Tamper protection." },
+    "T1021": { id: "T1021", name: "Remote Services", description: "Using remote services for lateral movement.", mitigation: "Disable unnecessary services." },
+    "T1560": { id: "T1560", name: "Archive Collected Data", description: "Compressing data.", mitigation: "Monitor file operations." },
+    "T1048": { id: "T1048", name: "Exfiltration Over Alternative Protocol", description: "Exfiltrating over different protocols.", mitigation: "Network monitoring." },
+    "T1485": { id: "T1485", name: "Data Destruction", description: "Destroying data.", mitigation: "Backups." }
 };
 
 export const LEVEL_THRESHOLDS = [0, 100, 300, 600, 1000, 1500, 2200, 3000, 4000, 5500, 7500, 10000, 15000, 22000, 30000, 50000];
