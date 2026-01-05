@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import CharacterCreation from './components/CharacterCreation';
 import TerminalLog from './components/TerminalLog';
-import { INITIAL_JOBS, INITIAL_UPGRADES, INITIAL_UNLOCKABLES, INITIAL_SOFTWARE, LEVEL_THRESHOLDS, KILL_CHAIN_PHASES, VAULT_LAYOUT, SKILL_DEFINITIONS, PRE_WAR_NEWS, THREAT_CONFIG, LIFESTYLE_CONFIG, STOCK_MARKET_COMPANIES, TARGET_REGISTRY, TECHNIQUE_DETAILS, CORPORATE_LADDER, SPECIAL_TOOLTIPS, FACTION_DEFINITIONS, INITIAL_ACHIEVEMENTS, LORE_TIMELINE, SOFTWARE_TOOLTIPS } from './constants';
-import { GameState, Job, LogEntry, Target, SkillName, Special, CorpData, PlayerActivity, EconomyState, Bounty, Faction, Achievement, Message } from './types';
+import { INITIAL_JOBS, INITIAL_UPGRADES, INITIAL_UNLOCKABLES, INITIAL_SOFTWARE, LEVEL_THRESHOLDS, KILL_CHAIN_PHASES, VAULT_LAYOUT, SKILL_DEFINITIONS, PRE_WAR_NEWS, THREAT_CONFIG, LIFESTYLE_CONFIG, STOCK_MARKET_COMPANIES, TARGET_REGISTRY, TECHNIQUE_DETAILS, CORPORATE_LADDER, SPECIAL_TOOLTIPS, FACTION_DEFINITIONS, INITIAL_ACHIEVEMENTS, LORE_TIMELINE, SOFTWARE_TOOLTIPS, CONSUMABLES, MUTATIONS } from './constants';
+import { GameState, Job, LogEntry, Target, SkillName, Special, CorpData, PlayerActivity, EconomyState, Bounty, Faction, Achievement, Message, Consumable, Mutation, ActiveEffect } from './types';
 import { 
   Shield, Cpu, HardDrive, Wifi, Brain, Disc, Target as TargetIcon,
   Coins, Box, Thermometer, AlertTriangle, PlusCircle, ArrowUp,
   DoorOpen, Coffee, Zap, Monitor, Moon, Play, FastForward, SkipForward, Edit2, Save,
   Briefcase, Globe, Calendar, Clock, Skull, Eye, TrendingUp, TrendingDown, DollarSign, Activity,
-  Key, Settings, Download, BarChart2, Home, Crosshair, Coffee as CoffeeIcon, Mail, Radiation, Trophy, Database
+  Key, Settings, Download, BarChart2, Home, Crosshair, Coffee as CoffeeIcon, Mail, Radiation, Trophy, Database, FileOutput, Upload, Syringe, Dna, FlaskConical, Pill
 } from 'lucide-react';
 
 const ROOM_ICON_MAP: Record<string, React.ElementType> = {
@@ -30,6 +30,8 @@ const FAILURE_REASONS = [
     "Authentication Token Expired",
     "Reverse Shell Blocked"
 ];
+
+const SAVE_KEY = "WIREFRAME_PROTOCOL_V1_SAVE";
 
 const getRandomTarget = (): Target => {
   return TARGET_REGISTRY[Math.floor(Math.random() * TARGET_REGISTRY.length)];
@@ -69,7 +71,7 @@ const rollDice = (exploding: boolean = true): { total: number, rolls: number[] }
 const App: React.FC = () => {
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [activeTab, setActiveTab] = useState<'SPECIAL' | 'SKILLS' | 'INTEL' | 'FACTIONS'>('SPECIAL');
-  const [activeShopTab, setActiveShopTab] = useState<'HARDWARE' | 'SOFTWARE' | 'MARKET' | 'SYSTEM'>('HARDWARE');
+  const [activeShopTab, setActiveShopTab] = useState<'HARDWARE' | 'SOFTWARE' | 'MARKET' | 'SYSTEM' | 'AID'>('HARDWARE');
   const [activeCenterTab, setActiveCenterTab] = useState<'TERMINAL' | 'INBOX' | 'DATABASE'>('TERMINAL');
   
   // UI State
@@ -78,6 +80,7 @@ const App: React.FC = () => {
   const [isEditingName, setIsEditingName] = useState(false);
   const [tempName, setTempName] = useState("");
   const [currentNewsIndex, setCurrentNewsIndex] = useState(0);
+  const [hasLocalSave, setHasLocalSave] = useState(false);
 
   // Game loop refs
   const stateRef = useRef<GameState | null>(null);
@@ -94,8 +97,67 @@ const App: React.FC = () => {
       const interval = setInterval(() => {
           setCurrentNewsIndex(prev => (prev + 1) % PRE_WAR_NEWS.length);
       }, 10000);
+      
+      // Check for local save on mount
+      const saved = localStorage.getItem(SAVE_KEY);
+      if (saved) setHasLocalSave(true);
+
       return () => clearInterval(interval);
   }, []);
+
+  // --- SAVE / LOAD SYSTEM ---
+  const saveGame = () => {
+      if (stateRef.current) {
+          try {
+              const saveString = JSON.stringify(stateRef.current);
+              localStorage.setItem(SAVE_KEY, saveString);
+              setHasLocalSave(true);
+              addLog("GAME SAVED TO LOCAL STORAGE.", 'success');
+          } catch (e) {
+              console.error("Save failed", e);
+              addLog("SAVE FAILED: STORAGE ERROR.", 'error');
+          }
+      }
+  };
+
+  const loadGame = () => {
+      try {
+          const saved = localStorage.getItem(SAVE_KEY);
+          if (saved) {
+              const parsed = JSON.parse(saved);
+              setGameState(parsed);
+              addLog("GAME LOADED FROM LOCAL STORAGE.", 'success');
+          }
+      } catch (e) {
+          console.error("Load failed", e);
+      }
+  };
+
+  const exportSave = () => {
+      if (stateRef.current) {
+          try {
+              const json = JSON.stringify(stateRef.current);
+              const hash = btoa(json);
+              navigator.clipboard.writeText(hash).then(() => {
+                  addLog("NEURAL LINK EXPORTED TO CLIPBOARD.", 'success');
+              });
+          } catch (e) {
+              addLog("EXPORT FAILED.", 'error');
+          }
+      }
+  };
+
+  const importSave = (saveString: string) => {
+      try {
+          const json = atob(saveString);
+          const parsed = JSON.parse(json);
+          setGameState(parsed);
+          addLog("NEURAL LINK IMPORT SUCCESSFUL.", 'success');
+      } catch (e) {
+          alert("Invalid Save String");
+      }
+  };
+
 
   const addLog = useCallback((message: string, type: LogEntry['type'] = 'info') => {
     setGameState((prev) => {
@@ -199,7 +261,12 @@ const App: React.FC = () => {
       marketLastUpdate: startDate,
       globalRadiation: 15, // Starts at 15%
       uiColor: '#ffb000',
-      tutorialStep: 1
+      tutorialStep: 1,
+      inventory: {},
+      activeEffects: [],
+      mutations: [],
+      playerRadiation: 0,
+      addictions: []
     });
     lastPhaseRef.current = -1;
   };
@@ -242,6 +309,7 @@ const App: React.FC = () => {
     let cashChange = 0;
     let heatChange = 0;
     let radiationChange = 0;
+    let playerRadChange = 0;
     let logsToAdd: LogEntry[] = [];
     let activityLog: LogEntry | null = null;
     let newLifestyleLevel = currentState.lifestyleLevel;
@@ -353,6 +421,12 @@ const App: React.FC = () => {
         }
     }
 
+    // Player Radiation Accumulation
+    if (activity !== 'DOWNTIME' && Math.random() > 0.5) {
+        const radExposure = Math.max(1, currentState.globalRadiation / 10);
+        playerRadChange += radExposure;
+    }
+
     if (activity === 'JOB') {
         if (newTime - lastJobPayTimeRef.current > 3600000) { 
             let ecoMult = 1;
@@ -381,22 +455,57 @@ const App: React.FC = () => {
          }
     }
 
-    const cpuBonus = currentState.upgrades.find(u => u.type === 'CPU')?.value || 0;
-    const cpuLevel = currentState.upgrades.find(u => u.type === 'CPU')?.owned || 0;
-    const swSpeedBonus = currentState.software.filter(s => s.bonus.stat === 'SPEED').reduce((acc, s) => acc + (s.bonus.value * s.owned), 0);
-    const powerPlantLevel = currentState.vaultLevels['v8'] || 0;
-    const vaultSpeedBonus = powerPlantLevel * 0.1;
-    const intMod = currentState.special.I * 0.1; 
-    
-    const baseSpeed = 0.05; 
-    const speed = (baseSpeed + (cpuLevel * cpuBonus) + swSpeedBonus + vaultSpeedBonus) * (1 + intMod);
-
     setGameState(prev => {
         if(!prev) return null;
+
+        // CALCULATE BONUSES
+        let speedMult = 1;
+        let heatGenMult = 1;
+        let critFlat = 0;
+        let cashMult = 1;
+        
+        let newActiveEffects = prev.activeEffects.filter(e => e.expiresAt > newTime);
+        
+        // Active Effects
+        newActiveEffects.forEach(effect => {
+             if (effect.effects.speed) speedMult += effect.effects.speed;
+             if (effect.effects.heatGen) heatGenMult += effect.effects.heatGen;
+             if (effect.effects.crit) critFlat += effect.effects.crit;
+             if (effect.effects.xp) cashMult += effect.effects.xp; // Using XP field for general yield buff in this simplified logic
+        });
+
+        // Mutations
+        prev.mutations.forEach(mId => {
+             const mut = MUTATIONS.find(m => m.id === mId);
+             if (mut) {
+                 if (mut.effects.speed) speedMult += mut.effects.speed;
+                 if (mut.effects.heatGen) heatGenMult += mut.effects.heatGen;
+                 if (mut.effects.crit) critFlat += mut.effects.crit;
+                 if (mut.effects.cash) cashMult += mut.effects.cash;
+             }
+        });
+
+        const cpuBonus = prev.upgrades.find(u => u.type === 'CPU')?.value || 0;
+        const cpuLevel = prev.upgrades.find(u => u.type === 'CPU')?.owned || 0;
+        const swSpeedBonus = prev.software.filter(s => s.bonus.stat === 'SPEED').reduce((acc, s) => acc + (s.bonus.value * s.owned), 0);
+        const powerPlantLevel = prev.vaultLevels['v8'] || 0;
+        const vaultSpeedBonus = powerPlantLevel * 0.1;
+        
+        // Effective SPECIAL (Effects not implemented fully to modify base stats in this loop for simplicity, direct stat mods applied where checked)
+        let effectiveInt = prev.special.I;
+        newActiveEffects.forEach(e => { if(e.effects.stat?.I) effectiveInt += e.effects.stat.I; });
+        prev.mutations.forEach(mId => { const m = MUTATIONS.find(x => x.id === mId); if(m?.effects.stat?.I) effectiveInt += m.effects.stat.I; });
+
+        const intMod = effectiveInt * 0.1; 
+        
+        const baseSpeed = 0.05; 
+        const speed = (baseSpeed + (cpuLevel * cpuBonus) + swSpeedBonus + vaultSpeedBonus) * (1 + intMod) * speedMult;
+
         
         let newProgress = prev.hackingProgress;
         let newHeat = Math.max(0, prev.heat + heatChange);
-        let newRadiation = Math.min(100, Math.max(0, prev.globalRadiation + radiationChange));
+        let newGlobalRadiation = Math.min(100, Math.max(0, prev.globalRadiation + radiationChange));
+        let newPlayerRadiation = Math.min(1000, prev.playerRadiation + playerRadChange);
         let currentCash = prev.cash + cashChange;
         let newTechniqueCounts = { ...prev.techniqueCounts };
         let newTarget = prev.currentTarget;
@@ -406,6 +515,24 @@ const App: React.FC = () => {
         let newPerkPoints = prev.perkPoints;
         let newUnlockables = prev.unlockables;
         let newAchievements = [...prev.achievements];
+        let newMutations = [...prev.mutations];
+
+        // Mutation Check
+        const radThresholds = [200, 400, 600, 800];
+        const currentThresholdIdx = radThresholds.findIndex(t => newPlayerRadiation < t); // -1 if > 800
+        const prevThresholdIdx = radThresholds.findIndex(t => prev.playerRadiation < t);
+        
+        // Simple logic: If we crossed a 200 rad boundary upwards
+        if (Math.floor(newPlayerRadiation / 200) > Math.floor(prev.playerRadiation / 200)) {
+            if (Math.random() > 0.5) { // 50% chance
+                 const availableMutations = MUTATIONS.filter(m => !newMutations.includes(m.id));
+                 if (availableMutations.length > 0) {
+                     const newMut = availableMutations[Math.floor(Math.random() * availableMutations.length)];
+                     newMutations.push(newMut.id);
+                     logsToAdd.push({ id: Date.now(), timestamp: "BIO_HAZARD", message: `DNA Corrupted. Mutation Gained: ${newMut.name}`, type: 'mutation' });
+                 }
+            }
+        }
 
         const threatConfig = THREAT_CONFIG.find(r => r.level === prev.threatLevel) || THREAT_CONFIG[2];
         const lifestyleConfig = LIFESTYLE_CONFIG.find(l => l.level === newLifestyleLevel) || LIFESTYLE_CONFIG[0];
@@ -438,7 +565,11 @@ const App: React.FC = () => {
             if (lifestyleConfig.level >= 4) lifestyleHeatDecay = 0.5;
             if (lifestyleConfig.level >= 6) lifestyleHeatDecay = 1.0;
 
-            newHeat = Math.max(0, newHeat - (prev.special.A * 0.05) - swHeatBonus - lifestyleHeatDecay);
+            let heatDecay = ((prev.special.A * 0.05) + swHeatBonus + lifestyleHeatDecay);
+            // Apply Mutation Bonuses to Heat Decay implicitly via heatGenMult if needed, but here we treat it as resistance
+            if (heatGenMult < 1) heatDecay = heatDecay * (2 - heatGenMult); // Rough approximation
+
+            newHeat = Math.max(0, newHeat - heatDecay);
 
             if (newHeat >= 100) {
                  const endurance = prev.special.E;
@@ -472,7 +603,7 @@ const App: React.FC = () => {
                 
                 if (total > (targetNumber - difficulty)) {
                     // FAILURE
-                    const heatGen = (isCritFail ? 20 : 5) * threatConfig.heatMod;
+                    const heatGen = (isCritFail ? 20 : 5) * threatConfig.heatMod * heatGenMult;
                     newHeat += heatGen;
                     const reason = FAILURE_REASONS[Math.floor(Math.random() * FAILURE_REASONS.length)];
                     logsToAdd.push({ id: Date.now() + Math.random(), timestamp: "FAIL", message: `Error: ${reason}. Heat +${Math.floor(heatGen)}.`, type: 'warning' });
@@ -494,12 +625,12 @@ const App: React.FC = () => {
             if (newProgress >= 100) {
                 const luckCritChance = prev.special.L * 0.02; 
                 const swCritBonus = prev.software.filter(s => s.bonus.stat === 'CRIT').reduce((acc, s) => acc + (s.bonus.value * s.owned), 0);
-                const isCrit = Math.random() < (luckCritChance + swCritBonus);
+                const isCrit = Math.random() < (luckCritChance + swCritBonus + critFlat);
                 const speechBonus = 1 + (prev.skills.Speech * 0.01);
                 const swCashBonus = prev.software.filter(s => s.bonus.stat === 'CASH').reduce((acc, s) => acc + (s.bonus.value * s.owned), 0);
                 const baseCash = (20 * prev.level) + prev.currentTarget.difficulty * 10 + swCashBonus;
                 
-                currentCash += Math.floor(baseCash * speechBonus * (isCrit ? 2 : 1) * threatConfig.multiplier);
+                currentCash += Math.floor(baseCash * speechBonus * (isCrit ? 2 : 1) * threatConfig.multiplier * cashMult);
                 
                 const intXpBonus = 1 + (prev.special.I * 0.05);
                 const baseXp = 20 + (prev.currentTarget.difficulty * 5);
@@ -563,7 +694,7 @@ const App: React.FC = () => {
         }
 
         // Radiation Achievement
-        if (newRadiation >= 50 && !newAchievements.find(a => a.id === 'a6')?.unlocked) {
+        if (newGlobalRadiation >= 50 && !newAchievements.find(a => a.id === 'a6')?.unlocked) {
              newAchievements = newAchievements.map(a => a.id === 'a6' ? { ...a, unlocked: true } : a);
              logsToAdd.push({ id: Date.now(), timestamp: "ACHIEVEMENT", message: "Unlocked: Glowing Sea", type: 'success' });
         }
@@ -583,7 +714,8 @@ const App: React.FC = () => {
             currentActivity: activity,
             hackingProgress: newProgress,
             heat: Math.min(100, newHeat),
-            globalRadiation: newRadiation,
+            globalRadiation: newGlobalRadiation,
+            playerRadiation: newPlayerRadiation,
             cash: currentCash,
             logs: logsToAdd.length > 0 ? [...prev.logs, ...logsToAdd].slice(-50) : prev.logs,
             techniqueCounts: newTechniqueCounts,
@@ -597,7 +729,9 @@ const App: React.FC = () => {
             lifestyleLevel: newLifestyleLevel,
             lastRentPaidDay: updatedRentPaidDay,
             activeBounties: newBounties,
-            achievements: newAchievements
+            achievements: newAchievements,
+            activeEffects: newActiveEffects,
+            mutations: newMutations
         };
     });
 
@@ -654,6 +788,82 @@ const App: React.FC = () => {
         }
         return prev;
     });
+  };
+  
+  const buyConsumable = (itemId: string) => {
+      setGameState(prev => {
+          if(!prev) return null;
+          const item = CONSUMABLES.find(c => c.id === itemId);
+          if (!item) return prev;
+          
+          let priceMult = 1;
+          if (prev.economyState === 'BOOM') priceMult = 1.2;
+          if (prev.economyState === 'RECESSION') priceMult = 0.9;
+          const barterMod = 1 - (prev.skills.Barter * 0.01);
+          const cost = Math.floor(item.baseCost * priceMult * barterMod);
+          
+          if (prev.cash >= cost) {
+              const newInv = { ...prev.inventory };
+              newInv[itemId] = (newInv[itemId] || 0) + 1;
+              return { ...prev, cash: prev.cash - cost, inventory: newInv, logs: [...prev.logs, { id: Date.now(), timestamp: "SHOP", message: `Purchased ${item.name}.`, type: 'info' } as LogEntry].slice(-50) };
+          }
+          return prev;
+      });
+  };
+
+  const useConsumable = (itemId: string) => {
+      setGameState(prev => {
+          if (!prev) return null;
+          const count = prev.inventory[itemId] || 0;
+          if (count <= 0) return prev;
+
+          const item = CONSUMABLES.find(c => c.id === itemId);
+          if (!item) return prev;
+
+          const newInv = { ...prev.inventory, [itemId]: count - 1 };
+          let newHeat = prev.heat;
+          let newPlayerRadiation = prev.playerRadiation;
+          let newMutations = [...prev.mutations];
+          let newActiveEffects = [...prev.activeEffects];
+
+          // Instant Effects
+          if (item.effects.heat) newHeat = Math.max(0, newHeat + item.effects.heat);
+          if (item.effects.rads) newPlayerRadiation = Math.max(0, newPlayerRadiation + item.effects.rads);
+
+          // Special Cases
+          if (item.id === 'c8' || item.id === 'c13') { // Fixer / Addictol
+              // Clear addictions (not fully implemented in state logic for brevity, but let's clear the array)
+             // prev.addictions = []; 
+          }
+          if (item.id === 'c10') { // Mutagenic Serum
+              const availableMutations = MUTATIONS.filter(m => !newMutations.includes(m.id));
+              if (availableMutations.length > 0) {
+                  const newMut = availableMutations[Math.floor(Math.random() * availableMutations.length)];
+                  newMutations.push(newMut.id);
+              }
+          }
+
+          // Timed Effects
+          if (item.duration > 0) {
+              newActiveEffects.push({
+                  id: `eff-${Date.now()}`,
+                  name: item.name,
+                  expiresAt: prev.gameTime + item.duration,
+                  sourceId: item.id,
+                  effects: item.effects
+              });
+          }
+
+          return {
+              ...prev,
+              inventory: newInv,
+              heat: newHeat,
+              playerRadiation: newPlayerRadiation,
+              mutations: newMutations,
+              activeEffects: newActiveEffects,
+              logs: [...prev.logs, { id: Date.now(), timestamp: "ITEM", message: `Used ${item.name}.`, type: 'success' } as LogEntry].slice(-50)
+          };
+      });
   };
 
   const buyStock = (corpCode: string, amount: number) => {
@@ -736,7 +946,7 @@ const App: React.FC = () => {
   const handleMouseEnter = (title: string, body: string) => setHoverInfo({ title, body });
   const handleMouseLeave = () => setHoverInfo(null);
 
-  if (!gameState) return <CharacterCreation onSelect={handleJobSelect} />;
+  if (!gameState) return <CharacterCreation onSelect={handleJobSelect} onLoad={loadGame} onImport={importSave} hasLocalSave={hasLocalSave} />;
 
   const nextXpThreshold = LEVEL_THRESHOLDS[gameState.level] || 'MAX';
   const xpPercentage = typeof nextXpThreshold === 'number' ? Math.min(100, (gameState.xp / nextXpThreshold) * 100) : 100;
@@ -767,12 +977,12 @@ const App: React.FC = () => {
 
       {/* Tutorial Overlay */}
       {gameState.tutorialStep > 0 && gameState.tutorialStep <= tutorialSteps.length && (
-          <div className="fixed top-20 right-20 z-50 bg-black border-2 p-4 max-w-xs shadow-lg animate-bounce" style={{ borderColor: gameState.uiColor }}>
-              <div className="font-bold mb-2">TUTORIAL SEQUENCE ({gameState.tutorialStep}/{tutorialSteps.length})</div>
-              <p className="mb-4">{tutorialSteps[gameState.tutorialStep - 1]}</p>
+          <div className="fixed top-20 right-4 md:right-20 z-50 bg-black border-2 p-4 max-w-[280px] md:max-w-xs shadow-lg" style={{ borderColor: gameState.uiColor }}>
+              <div className="font-bold mb-2 text-sm md:text-base">TUTORIAL SEQUENCE ({gameState.tutorialStep}/{tutorialSteps.length})</div>
+              <p className="mb-4 text-xs md:text-sm">{tutorialSteps[gameState.tutorialStep - 1]}</p>
               <button 
                 onClick={() => setGameState(p => p ? {...p, tutorialStep: p.tutorialStep + 1} : null)}
-                className="border px-2 py-1 text-sm hover:bg-white/10 w-full" style={{ borderColor: gameState.uiColor }}
+                className="border px-2 py-1 text-xs md:text-sm hover:bg-white/10 w-full" style={{ borderColor: gameState.uiColor }}
               >
                   ACKNOWLEDGE
               </button>
@@ -783,14 +993,14 @@ const App: React.FC = () => {
       <div className="fixed bottom-12 left-1/2 -translate-x-1/2 z-40 w-full max-w-2xl text-center pointer-events-none">
           {hoverInfo && (
                <div className="bg-black/90 border-t-2 p-2 shadow-lg" style={{ borderColor: gameState.uiColor }}>
-                   <span className="font-bold uppercase mr-2">[{hoverInfo.title}]</span>
+                   <span className="font-bold uppercase mr-2 text-sm">[{hoverInfo.title}]</span>
                </div>
           )}
       </div>
 
       {/* NEWS TICKER */}
       <div className="fixed bottom-0 left-0 w-full bg-black h-8 flex items-center overflow-hidden z-50 border-t-2" style={{ borderColor: gameState.uiColor, color: gameState.uiColor }}>
-           <div className="whitespace-nowrap animate-[marquee_20s_linear_infinite] px-4 font-bold text-lg uppercase flex items-center gap-8">
+           <div className="whitespace-nowrap animate-[marquee_20s_linear_infinite] px-4 font-bold text-base md:text-lg uppercase flex items-center gap-8">
                <Globe size={16} />
                <span>BREAKING NEWS: {PRE_WAR_NEWS[currentNewsIndex]}</span>
                <Globe size={16} />
@@ -798,13 +1008,13 @@ const App: React.FC = () => {
            </div>
       </div>
 
-      <div className="w-full h-full max-w-7xl mx-auto flex flex-col md:flex-row gap-4 pb-8">
+      <div className="w-full h-full max-w-7xl mx-auto flex flex-col md:flex-row gap-4 pb-8 overflow-y-auto md:overflow-hidden">
         
         {/* Left Panel */}
-        <div className="w-full md:w-1/4 flex flex-col gap-4">
+        <div className="w-full md:w-1/4 flex flex-col gap-4 shrink-0">
             
             {/* Header / Profile */}
-            <div className="border-2 p-4 bg-black/80 backdrop-blur-sm relative shadow-lg" style={{ borderColor: gameState.uiColor }}>
+            <div className="border-2 p-2 md:p-4 bg-black/80 backdrop-blur-sm relative shadow-lg" style={{ borderColor: gameState.uiColor }}>
                 <div className="flex justify-between items-center border-b pb-2 mb-2 opacity-80" style={{ borderColor: gameState.uiColor }}>
                     {isEditingName ? (
                         <div className="flex items-center gap-2 w-full">
@@ -813,15 +1023,15 @@ const App: React.FC = () => {
                         </div>
                     ) : (
                         <div className="flex items-center gap-2 overflow-hidden">
-                            <h1 className="text-xl font-bold uppercase truncate">{gameState.playerName}</h1>
+                            <h1 className="text-lg md:text-xl font-bold uppercase truncate">{gameState.playerName}</h1>
                             <button onClick={() => { setTempName(gameState.playerName); setIsEditingName(true); }} className="opacity-50 hover:opacity-100"><Edit2 size={12} /></button>
                         </div>
                     )}
-                    <div className="text-xs opacity-70 flex items-center gap-1 shrink-0"><Shield size={12} /> LVL {gameState.level}</div>
+                    <div className="text-xs md:text-sm opacity-70 flex items-center gap-1 shrink-0"><Shield size={12} /> LVL {gameState.level}</div>
                 </div>
 
                 <div 
-                    className="text-xs uppercase font-bold opacity-70 mb-2 cursor-help border border-transparent hover:border-current px-1 rounded transition-colors"
+                    className="text-xs md:text-sm uppercase font-bold opacity-70 mb-2 cursor-help border border-transparent hover:border-current px-1 rounded transition-colors"
                     onMouseEnter={() => handleMouseEnter("Organizational Chart", getOrgChart())}
                     onMouseLeave={handleMouseLeave}
                 >
@@ -829,7 +1039,7 @@ const App: React.FC = () => {
                 </div>
                  
                 <div className="mb-2 p-2 bg-white/5 border flex flex-col gap-1" style={{ borderColor: gameState.uiColor }}>
-                    <div className="flex justify-between items-center text-sm">
+                    <div className="flex justify-between items-center text-xs md:text-sm">
                         <div className="flex items-center gap-2"><Calendar size={14} /><span>{dateInfo.dateStr}</span></div>
                         <div className="flex items-center gap-2 font-mono font-bold"><Clock size={14} /><span>{dateInfo.timeStr}</span></div>
                     </div>
@@ -855,7 +1065,7 @@ const App: React.FC = () => {
 
                 {/* Threat Controls */}
                 <div className="mb-2">
-                    <div className="flex justify-between text-[10px] uppercase font-bold mb-1">
+                    <div className="flex justify-between text-xs uppercase font-bold mb-1">
                         <span>Threat Level</span>
                         <span className={currentThreat.color}>{currentThreat.label} (x{currentThreat.multiplier})</span>
                     </div>
@@ -864,7 +1074,7 @@ const App: React.FC = () => {
                             <button 
                                 key={r.level}
                                 onClick={() => setGameState(prev => prev ? {...prev, threatLevel: r.level} : null)}
-                                className={`flex-1 h-2 transition-all ${gameState.threatLevel >= r.level ? r.color.replace('text-', 'bg-') : 'bg-gray-800'}`}
+                                className={`flex-1 h-3 md:h-2 transition-all ${gameState.threatLevel >= r.level ? r.color.replace('text-', 'bg-') : 'bg-gray-800'}`}
                                 onMouseEnter={() => handleMouseEnter(r.label, `${r.desc}\nRewards: x${r.multiplier}\nHeat: x${r.heatMod}`)}
                                 onMouseLeave={handleMouseLeave}
                             />
@@ -872,7 +1082,7 @@ const App: React.FC = () => {
                     </div>
 
                     {/* Lifestyle Slider */}
-                    <div className="flex justify-between text-[10px] uppercase font-bold mb-1">
+                    <div className="flex justify-between text-xs uppercase font-bold mb-1">
                         <span>Lifestyle Standard</span>
                         <span>{currentLifestyle.name}</span>
                     </div>
@@ -881,7 +1091,7 @@ const App: React.FC = () => {
                             <button 
                                 key={l.level}
                                 onClick={() => setGameState(prev => prev ? {...prev, lifestyleLevel: l.level} : null)}
-                                className={`flex-1 h-2 transition-all ${gameState.lifestyleLevel >= l.level ? 'bg-current' : 'bg-gray-800'}`}
+                                className={`flex-1 h-3 md:h-2 transition-all ${gameState.lifestyleLevel >= l.level ? 'bg-current' : 'bg-gray-800'}`}
                                 onMouseEnter={() => handleMouseEnter(l.name, `Cost: ${l.dailyCost} Caps/Day\nBuff: ${l.buff}\nXP Mult: x${l.xpMult}`)}
                                 onMouseLeave={handleMouseLeave}
                             />
@@ -891,9 +1101,9 @@ const App: React.FC = () => {
 
                 <div className="flex flex-col gap-1 mb-2">
                      <div className="flex justify-between gap-1">
-                         <button className={`flex-1 flex justify-center py-1 border ${gameState.gameSpeed === 1 ? 'bg-current text-black' : 'hover:bg-white/10'}`} style={{ borderColor: gameState.uiColor }} onClick={() => setGameState(prev => prev ? {...prev, gameSpeed: 1} : null)}><Play size={14} /></button>
-                         <button className={`flex-1 flex justify-center py-1 border ${gameState.gameSpeed === 50 ? 'bg-current text-black' : 'hover:bg-white/10'}`} style={{ borderColor: gameState.uiColor }} onClick={() => setGameState(prev => prev ? {...prev, gameSpeed: 50} : null)}><FastForward size={14} /></button>
-                          <button className={`flex-1 flex justify-center py-1 border ${gameState.gameSpeed === 500 ? 'bg-current text-black' : 'hover:bg-white/10'}`} style={{ borderColor: gameState.uiColor }} onClick={() => setGameState(prev => prev ? {...prev, gameSpeed: 500} : null)}><SkipForward size={14} /></button>
+                         <button className={`flex-1 flex justify-center py-2 md:py-1 border ${gameState.gameSpeed === 1 ? 'bg-current text-black' : 'hover:bg-white/10'}`} style={{ borderColor: gameState.uiColor }} onClick={() => setGameState(prev => prev ? {...prev, gameSpeed: 1} : null)}><Play size={14} /></button>
+                         <button className={`flex-1 flex justify-center py-2 md:py-1 border ${gameState.gameSpeed === 50 ? 'bg-current text-black' : 'hover:bg-white/10'}`} style={{ borderColor: gameState.uiColor }} onClick={() => setGameState(prev => prev ? {...prev, gameSpeed: 50} : null)}><FastForward size={14} /></button>
+                          <button className={`flex-1 flex justify-center py-2 md:py-1 border ${gameState.gameSpeed === 500 ? 'bg-current text-black' : 'hover:bg-white/10'}`} style={{ borderColor: gameState.uiColor }} onClick={() => setGameState(prev => prev ? {...prev, gameSpeed: 500} : null)}><SkipForward size={14} /></button>
                      </div>
                 </div>
 
@@ -906,8 +1116,8 @@ const App: React.FC = () => {
 
              {/* Heat Meter */}
              <div className="border-2 p-2 bg-black/80 relative" style={{ borderColor: gameState.uiColor }} onMouseEnter={() => handleMouseEnter("System Heat", "Heat increases when hacks fail. If it reaches 100%, system lockout occurs.")} onMouseLeave={handleMouseLeave}>
-                 <div className="flex justify-between items-center text-xs mb-1">
-                     <span className="flex items-center gap-1 font-bold text-red-500"><Thermometer size={12} /> HEAT</span>
+                 <div className="flex justify-between items-center text-xs md:text-sm mb-1">
+                     <span className="flex items-center gap-1 font-bold text-red-500"><Thermometer size={14} /> HEAT</span>
                      <span className={gameState.heat > 80 ? 'text-red-500 animate-pulse font-bold' : ''}>{Math.floor(gameState.heat)}%</span>
                  </div>
                  <div className="w-full h-3 bg-red-900/20 border border-red-900/50"><div className={`h-full transition-all duration-500 ${gameState.heat > 80 ? 'bg-red-500' : 'bg-red-700'}`} style={{ width: `${gameState.heat}%` }}></div></div>
@@ -922,33 +1132,61 @@ const App: React.FC = () => {
 
              {/* Radiation Meter */}
              <div className="border-2 p-2 bg-black/80 relative" style={{ borderColor: gameState.uiColor }} onMouseEnter={() => handleMouseEnter("Global Radiation Index", "Higher radiation = more instability. Increases chance of Stock Market chaos events and passive damage to hardware.")} onMouseLeave={handleMouseLeave}>
-                 <div className="flex justify-between items-center text-xs mb-1">
-                     <span className="flex items-center gap-1 font-bold text-green-400"><Radiation size={12} /> RADS</span>
+                 <div className="flex justify-between items-center text-xs md:text-sm mb-1">
+                     <span className="flex items-center gap-1 font-bold text-green-400"><Radiation size={14} /> RADS</span>
                      <span className={gameState.globalRadiation > 50 ? 'text-green-400 animate-pulse font-bold' : 'text-green-600'}>{Math.floor(gameState.globalRadiation)}%</span>
                  </div>
                  <div className="w-full h-3 bg-green-900/20 border border-green-900/50"><div className="h-full bg-green-600 transition-all duration-500" style={{ width: `${gameState.globalRadiation}%` }}></div></div>
              </div>
 
-            <div className="flex gap-2">
-                <button onClick={() => setActiveTab('SPECIAL')} className={`flex-1 py-1 text-sm font-bold border ${activeTab === 'SPECIAL' ? 'bg-current text-black' : 'hover:bg-white/10'}`} style={{ borderColor: gameState.uiColor }}>S.P.E.C.I.A.L</button>
-                <button onClick={() => setActiveTab('SKILLS')} className={`flex-1 py-1 text-sm font-bold border ${activeTab === 'SKILLS' ? 'bg-current text-black' : 'hover:bg-white/10'}`} style={{ borderColor: gameState.uiColor }}>SKILLS</button>
-                <button onClick={() => setActiveTab('INTEL')} className={`flex-1 py-1 text-sm font-bold border ${activeTab === 'INTEL' ? 'bg-current text-black' : 'hover:bg-white/10'}`} style={{ borderColor: gameState.uiColor }}>INTEL</button>
-                <button onClick={() => setActiveTab('FACTIONS')} className={`flex-1 py-1 text-sm font-bold border ${activeTab === 'FACTIONS' ? 'bg-current text-black' : 'hover:bg-white/10'}`} style={{ borderColor: gameState.uiColor }}>FACTIONS</button>
+            {/* Active Effects & Mutations */}
+             <div className="flex flex-col gap-1 mt-2">
+                 {gameState.mutations.length > 0 && (
+                     <div className="border border-purple-500/50 p-1 bg-purple-900/20">
+                         <div className="text-[10px] font-bold text-purple-400 uppercase mb-1 flex items-center gap-1"><Dna size={10} /> MUTATIONS DETECTED</div>
+                         <div className="flex flex-wrap gap-1">
+                             {gameState.mutations.map(mId => {
+                                 const m = MUTATIONS.find(x => x.id === mId);
+                                 return m ? <span key={mId} className="text-[10px] px-1 bg-purple-500/20 text-purple-300 border border-purple-500/50 cursor-help" onMouseEnter={() => handleMouseEnter(m.name, `${m.description}\n\n[+] ${m.positive}\n[-] ${m.negative}`)} onMouseLeave={handleMouseLeave}>{m.name}</span> : null;
+                             })}
+                         </div>
+                     </div>
+                 )}
+                 {gameState.activeEffects.length > 0 && (
+                     <div className="border border-blue-500/50 p-1 bg-blue-900/20">
+                         <div className="text-[10px] font-bold text-blue-400 uppercase mb-1 flex items-center gap-1"><FlaskConical size={10} /> ACTIVE BUFFS</div>
+                         <div className="flex flex-wrap gap-1">
+                             {gameState.activeEffects.map(eff => (
+                                 <span key={eff.id} className="text-[10px] px-1 bg-blue-500/20 text-blue-300 border border-blue-500/50">
+                                     {eff.name} ({Math.ceil((eff.expiresAt - gameState.gameTime)/1000)}s)
+                                 </span>
+                             ))}
+                         </div>
+                     </div>
+                 )}
+             </div>
+
+            <div className="flex gap-1 md:gap-2 mt-2">
+                <button onClick={() => setActiveTab('SPECIAL')} className={`flex-1 py-2 md:py-1 text-xs md:text-sm font-bold border ${activeTab === 'SPECIAL' ? 'bg-current text-black' : 'hover:bg-white/10'}`} style={{ borderColor: gameState.uiColor }}>S.P.E.C.I.A.L</button>
+                <button onClick={() => setActiveTab('SKILLS')} className={`flex-1 py-2 md:py-1 text-xs md:text-sm font-bold border ${activeTab === 'SKILLS' ? 'bg-current text-black' : 'hover:bg-white/10'}`} style={{ borderColor: gameState.uiColor }}>SKILLS</button>
+                <button onClick={() => setActiveTab('INTEL')} className={`flex-1 py-2 md:py-1 text-xs md:text-sm font-bold border ${activeTab === 'INTEL' ? 'bg-current text-black' : 'hover:bg-white/10'}`} style={{ borderColor: gameState.uiColor }}>INTEL</button>
+                <button onClick={() => setActiveTab('FACTIONS')} className={`flex-1 py-2 md:py-1 text-xs md:text-sm font-bold border ${activeTab === 'FACTIONS' ? 'bg-current text-black' : 'hover:bg-white/10'}`} style={{ borderColor: gameState.uiColor }}>FACTIONS</button>
             </div>
 
-            <div className="flex-1 border-2 p-4 bg-black/80 backdrop-blur-sm relative shadow-lg flex flex-col min-h-[200px] overflow-hidden" style={{ borderColor: gameState.uiColor }}>
+            <div className="flex-1 border-2 p-2 md:p-4 bg-black/80 backdrop-blur-sm relative shadow-lg flex flex-col min-h-[150px] max-h-[300px] md:max-h-none overflow-hidden" style={{ borderColor: gameState.uiColor }}>
                 {gameState.upgradePoints > 0 && <div className="mb-2 text-center text-xs bg-current text-black font-bold animate-pulse">POINTS AVAILABLE: {gameState.upgradePoints}</div>}
 
                 {activeTab === 'SPECIAL' && (
                     <div className="flex flex-col h-full overflow-y-auto scrollbar-thin space-y-2">
                         {Object.entries(gameState.special).map(([key, val]) => {
                              const tooltip = SPECIAL_TOOLTIPS[key as keyof typeof SPECIAL_TOOLTIPS];
+                             const numVal = val as number;
                              return (
                                 <div key={key} className="flex items-center justify-between border-b pb-1 hover:bg-white/5 cursor-help" style={{ borderColor: `${gameState.uiColor}33` }} onMouseEnter={() => tooltip && handleMouseEnter(tooltip.title, tooltip.desc)} onMouseLeave={handleMouseLeave}>
                                     <div className="flex items-center gap-2">
                                         <div className="w-6 h-6 flex items-center justify-center font-bold text-lg bg-white/10 border" style={{ borderColor: `${gameState.uiColor}50` }}>{key}</div>
                                     </div>
-                                    <div className="flex items-center gap-2"><span className="font-mono text-xl">{val}</span>{gameState.upgradePoints > 0 && val < 10 && <button onClick={() => spendPoint('SPECIAL', key)} className="hover:text-white"><PlusCircle size={14} /></button>}</div>
+                                    <div className="flex items-center gap-2"><span className="font-mono text-xl">{numVal}</span>{gameState.upgradePoints > 0 && numVal < 10 && <button onClick={() => spendPoint('SPECIAL', key)} className="hover:text-white"><PlusCircle size={14} /></button>}</div>
                                 </div>
                              );
                         })}
@@ -978,7 +1216,7 @@ const App: React.FC = () => {
                                         <span className="text-xs font-bold text-red-400">TARGET: {bounty.targetCorp}</span>
                                         <span className="text-xs font-mono">{bounty.reward} CAPS</span>
                                     </div>
-                                    <div className="text-[10px] opacity-70 flex justify-between">
+                                    <div className="text-xs opacity-70 flex justify-between">
                                         <span>{bounty.description}</span>
                                         <span className="font-bold">[{bounty.type}]</span>
                                     </div>
@@ -990,14 +1228,14 @@ const App: React.FC = () => {
                 )}
                 {activeTab === 'FACTIONS' && (
                      <div className="flex flex-col h-full overflow-y-auto scrollbar-thin space-y-2">
-                        {Object.values(gameState.factions).map(fac => (
+                        {Object.values(gameState.factions).map((fac: Faction) => (
                             <div key={fac.id} className="border-b pb-1 cursor-help hover:bg-white/5" style={{ borderColor: `${gameState.uiColor}33` }} onMouseEnter={() => handleMouseEnter(fac.name, fac.tooltip)} onMouseLeave={handleMouseLeave}>
                                 <div className="font-bold text-sm">{fac.name}</div>
                                 <div className="flex justify-between text-xs opacity-80">
                                     <span>REP: {fac.reputation}</span>
                                     <span className={fac.isHostile ? 'text-red-500' : 'text-green-500'}>{fac.isHostile ? 'HOSTILE' : 'NEUTRAL'}</span>
                                 </div>
-                                <div className="text-[10px] opacity-60 italic">{fac.description}</div>
+                                <div className="text-xs opacity-60 italic">{fac.description}</div>
                             </div>
                         ))}
                      </div>
@@ -1006,7 +1244,7 @@ const App: React.FC = () => {
         </div>
 
         {/* Center Panel */}
-        <div className="flex-1 flex flex-col border-2 relative bg-black/90 shadow-lg" style={{ borderColor: gameState.uiColor }}>
+        <div className="flex-1 flex flex-col border-2 relative bg-black/90 shadow-lg min-h-[400px]" style={{ borderColor: gameState.uiColor }}>
              <div className="absolute top-0 left-0 text-black px-2 font-bold text-sm z-10 flex items-center gap-4 bg-current">
                  <span>TERMINAL_OUTPUT</span>
                  {gameState.currentActivity === 'JOB' && <span className="text-red-500 animate-pulse flex items-center gap-1 text-[10px]"><Briefcase size={10} /> WORK MODE</span>}
@@ -1014,16 +1252,16 @@ const App: React.FC = () => {
              </div>
              
              {/* Center Panel Tabs */}
-             <div className="absolute top-0 right-0 flex">
-                  <button onClick={() => setActiveCenterTab('TERMINAL')} className={`px-2 text-xs border-l border-b ${activeCenterTab === 'TERMINAL' ? 'bg-white/20' : ''}`} style={{ borderColor: gameState.uiColor }}>CMD</button>
-                  <button onClick={() => setActiveCenterTab('INBOX')} className={`px-2 text-xs border-l border-b ${activeCenterTab === 'INBOX' ? 'bg-white/20' : ''}`} style={{ borderColor: gameState.uiColor }}>MSG ({gameState.messages.filter(m => !m.read).length})</button>
-                  <button onClick={() => setActiveCenterTab('DATABASE')} className={`px-2 text-xs border-l border-b ${activeCenterTab === 'DATABASE' ? 'bg-white/20' : ''}`} style={{ borderColor: gameState.uiColor }}>DB</button>
+             <div className="absolute top-0 right-0 flex z-10 bg-black/80">
+                  <button onClick={() => setActiveCenterTab('TERMINAL')} className={`px-2 py-1 text-xs md:text-sm border-l border-b ${activeCenterTab === 'TERMINAL' ? 'bg-white/20' : ''}`} style={{ borderColor: gameState.uiColor }}>CMD</button>
+                  <button onClick={() => setActiveCenterTab('INBOX')} className={`px-2 py-1 text-xs md:text-sm border-l border-b ${activeCenterTab === 'INBOX' ? 'bg-white/20' : ''}`} style={{ borderColor: gameState.uiColor }}>MSG ({gameState.messages.filter(m => !m.read).length})</button>
+                  <button onClick={() => setActiveCenterTab('DATABASE')} className={`px-2 py-1 text-xs md:text-sm border-l border-b ${activeCenterTab === 'DATABASE' ? 'bg-white/20' : ''}`} style={{ borderColor: gameState.uiColor }}>DB</button>
              </div>
              
              {activeCenterTab === 'TERMINAL' && (
                  <>
                     {/* Header for Terminal */}
-                    <div className="p-4 pt-8 border-b bg-black font-mono text-sm leading-tight opacity-70" style={{ borderColor: `${gameState.uiColor}50` }}>
+                    <div className="p-4 pt-10 md:pt-8 border-b bg-black font-mono text-xs md:text-sm leading-tight opacity-70" style={{ borderColor: `${gameState.uiColor}50` }}>
                         <div className="flex justify-between font-bold">
                             <span>WIREFRAME PROTOCOL v20.75 [SECURE]</span>
                             <span>STATUS: CONNECTED</span>
@@ -1041,7 +1279,7 @@ const App: React.FC = () => {
              )}
 
              {activeCenterTab === 'INBOX' && (
-                 <div className="p-4 pt-8 h-full overflow-y-auto scrollbar-thin">
+                 <div className="p-4 pt-10 md:pt-8 h-full overflow-y-auto scrollbar-thin">
                      <h2 className="text-xl font-bold border-b mb-4 flex items-center gap-2" style={{ borderColor: gameState.uiColor }}><Mail /> SECURE INBOX</h2>
                      {gameState.messages.length === 0 && <div className="opacity-50">No messages.</div>}
                      {gameState.messages.map(msg => (
@@ -1058,7 +1296,7 @@ const App: React.FC = () => {
              )}
 
              {activeCenterTab === 'DATABASE' && (
-                 <div className="p-4 pt-8 h-full overflow-y-auto scrollbar-thin">
+                 <div className="p-4 pt-10 md:pt-8 h-full overflow-y-auto scrollbar-thin">
                       <h2 className="text-xl font-bold border-b mb-4 flex items-center gap-2" style={{ borderColor: gameState.uiColor }}><Database /> LORE DATABASE</h2>
                       <div className="space-y-4">
                           {LORE_TIMELINE.map((entry, idx) => (
@@ -1082,7 +1320,7 @@ const App: React.FC = () => {
         </div>
 
         {/* Right Panel */}
-        <div className="w-full md:w-1/4 flex flex-col gap-4">
+        <div className="w-full md:w-1/4 flex flex-col gap-4 shrink-0">
              
              <div className="border-2 p-4 bg-black/80 backdrop-blur-sm relative shadow-lg" style={{ borderColor: gameState.uiColor }}>
                 <div className="absolute top-0 left-0 text-black px-2 font-bold text-sm bg-current">COMMAND_NODE.SYS</div>
@@ -1099,12 +1337,12 @@ const App: React.FC = () => {
                                  return (
                                      <button
                                         key={`${row}-${col}`} 
-                                        className={`w-10 h-10 flex items-center justify-center border text-[8px] relative group ${isBuilt ? 'bg-white/20 hover:bg-white/40 border-current' : 'border-gray-800 bg-black opacity-20 cursor-default'} ${room && !isBuilt ? 'border-dashed' : ''}`}
+                                        className={`w-10 h-10 md:w-12 md:h-12 flex items-center justify-center border text-[10px] relative group ${isBuilt ? 'bg-white/20 hover:bg-white/40 border-current' : 'border-gray-800 bg-black opacity-20 cursor-default'} ${room && !isBuilt ? 'border-dashed' : ''}`}
                                         onClick={() => isBuilt && room && upgradeVaultRoom(room.id)}
                                         onMouseEnter={() => room && isBuilt && handleMouseEnter(`${room.name} (Lvl ${level})`, `${room.description}\nEffect: ${room.bonusDescription}\nUpgrade Cost: ℂ${upgradeCost}`)}
                                         onMouseLeave={handleMouseLeave}
                                      >
-                                         {isBuilt && <><Icon size={16} /><div className="absolute bottom-0 right-0 text-[8px] leading-none px-[2px] bg-black">{level}</div></>}
+                                         {isBuilt && <><Icon size={20} /><div className="absolute bottom-0 right-0 text-[10px] leading-none px-[2px] bg-black">{level}</div></>}
                                      </button>
                                  );
                              })
@@ -1113,14 +1351,15 @@ const App: React.FC = () => {
                 </div>
              </div>
              
-             <div className="flex-1 flex flex-col border-2 p-4 bg-black/80 backdrop-blur-sm relative shadow-lg min-h-[300px]" style={{ borderColor: gameState.uiColor }}>
+             <div className="flex-1 flex flex-col border-2 p-2 md:p-4 bg-black/80 backdrop-blur-sm relative shadow-lg min-h-[300px]" style={{ borderColor: gameState.uiColor }}>
                  <div className="absolute top-0 left-0 text-black px-2 font-bold text-sm z-10 bg-current">SUPPLY_CHAIN</div>
                  
-                 <div className="flex gap-1 mt-4 mb-2 border-b pb-2" style={{ borderColor: `${gameState.uiColor}50` }}>
-                     <button className={`flex-1 text-[10px] font-bold py-1 ${activeShopTab === 'HARDWARE' ? 'bg-current text-black' : 'border'}`} style={{ borderColor: gameState.uiColor }} onClick={() => setActiveShopTab('HARDWARE')}>HW</button>
-                     <button className={`flex-1 text-[10px] font-bold py-1 ${activeShopTab === 'SOFTWARE' ? 'bg-current text-black' : 'border'}`} style={{ borderColor: gameState.uiColor }} onClick={() => setActiveShopTab('SOFTWARE')}>SW</button>
-                     <button className={`flex-1 text-[10px] font-bold py-1 ${activeShopTab === 'MARKET' ? 'bg-current text-black' : 'border'}`} style={{ borderColor: gameState.uiColor }} onClick={() => setActiveShopTab('MARKET')}>MKT</button>
-                     <button className={`flex-1 text-[10px] font-bold py-1 ${activeShopTab === 'SYSTEM' ? 'bg-current text-black' : 'border'}`} style={{ borderColor: gameState.uiColor }} onClick={() => setActiveShopTab('SYSTEM')}>SYS</button>
+                 <div className="flex gap-1 mt-6 md:mt-4 mb-2 border-b pb-2" style={{ borderColor: `${gameState.uiColor}50` }}>
+                     <button className={`flex-1 text-xs font-bold py-2 md:py-1 ${activeShopTab === 'HARDWARE' ? 'bg-current text-black' : 'border'}`} style={{ borderColor: gameState.uiColor }} onClick={() => setActiveShopTab('HARDWARE')}>HW</button>
+                     <button className={`flex-1 text-xs font-bold py-2 md:py-1 ${activeShopTab === 'SOFTWARE' ? 'bg-current text-black' : 'border'}`} style={{ borderColor: gameState.uiColor }} onClick={() => setActiveShopTab('SOFTWARE')}>SW</button>
+                     <button className={`flex-1 text-xs font-bold py-2 md:py-1 ${activeShopTab === 'MARKET' ? 'bg-current text-black' : 'border'}`} style={{ borderColor: gameState.uiColor }} onClick={() => setActiveShopTab('MARKET')}>MKT</button>
+                     <button className={`flex-1 text-xs font-bold py-2 md:py-1 ${activeShopTab === 'AID' ? 'bg-current text-black' : 'border'}`} style={{ borderColor: gameState.uiColor }} onClick={() => setActiveShopTab('AID')}>AID</button>
+                     <button className={`flex-1 text-xs font-bold py-2 md:py-1 ${activeShopTab === 'SYSTEM' ? 'bg-current text-black' : 'border'}`} style={{ borderColor: gameState.uiColor }} onClick={() => setActiveShopTab('SYSTEM')}>SYS</button>
                  </div>
 
                  <div className="flex-1 overflow-y-auto scrollbar-thin space-y-2 pr-1">
@@ -1130,9 +1369,9 @@ const App: React.FC = () => {
                          const canAfford = gameState.cash >= cost;
                          let Icon = Cpu; if (upgrade.type === 'RAM') Icon = HardDrive; if (upgrade.type === 'NETWORK') Icon = Wifi; if (upgrade.type === 'COOLING') Icon = Brain;
                          return (
-                            <button key={upgrade.id} disabled={!canAfford} onClick={() => buyUpgrade(upgrade.id)} onMouseEnter={() => handleMouseEnter(upgrade.name, upgrade.description)} onMouseLeave={handleMouseLeave} className={`w-full text-left p-2 border ${canAfford ? 'hover:bg-white/10 cursor-pointer border-current' : 'border-gray-700 text-gray-600 cursor-not-allowed'} transition-all group relative`}>
-                                <div className="flex justify-between items-center"><span className="font-bold flex items-center gap-2 text-xs"><Icon size={14} /> {upgrade.name}</span><span className="text-[10px] border border-current px-1">Lvl {upgrade.owned}</span></div>
-                                <div className="mt-1 flex justify-between items-center font-mono text-xs"><span className={canAfford ? '' : 'text-red-900'}>ℂ{cost.toLocaleString()}</span>{canAfford && <PlusCircle size={10} />}</div>
+                            <button key={upgrade.id} disabled={!canAfford} onClick={() => buyUpgrade(upgrade.id)} onMouseEnter={() => handleMouseEnter(upgrade.name, upgrade.description)} onMouseLeave={handleMouseLeave} className={`w-full text-left p-3 md:p-2 border ${canAfford ? 'hover:bg-white/10 cursor-pointer border-current' : 'border-gray-700 text-gray-600 cursor-not-allowed'} transition-all group relative`}>
+                                <div className="flex justify-between items-center"><span className="font-bold flex items-center gap-2 text-xs md:text-sm"><Icon size={16} /> {upgrade.name}</span><span className="text-xs border border-current px-1">Lvl {upgrade.owned}</span></div>
+                                <div className="mt-1 flex justify-between items-center font-mono text-xs md:text-sm"><span className={canAfford ? '' : 'text-red-900'}>ℂ{cost.toLocaleString()}</span>{canAfford && <PlusCircle size={12} />}</div>
                             </button>
                         );
                     })}
@@ -1144,9 +1383,9 @@ const App: React.FC = () => {
                          let Icon = Disc; if (sw.type === 'VIRUS') Icon = Skull; if (sw.type === 'WORM') Icon = Activity; if (sw.type === 'TROJAN') Icon = Key; if (sw.type === 'ROOTKIT') Icon = Settings;
                          const tooltip = SOFTWARE_TOOLTIPS[sw.type];
                          return (
-                            <button key={sw.id} disabled={!canAfford} onClick={() => buySoftware(sw.id)} onMouseEnter={() => tooltip && handleMouseEnter(sw.name, `${tooltip} (+${sw.bonus.value} ${sw.bonus.stat})`)} onMouseLeave={handleMouseLeave} className={`w-full text-left p-2 border ${canAfford ? 'hover:bg-white/10 cursor-pointer border-current' : 'border-gray-700 text-gray-600 cursor-not-allowed'} transition-all group relative`}>
-                                <div className="flex justify-between items-center"><span className="font-bold flex items-center gap-2 text-xs"><Icon size={14} /> {sw.name}</span><span className="text-[10px] border border-current px-1">v{sw.owned}.0</span></div>
-                                <div className="mt-1 flex justify-between items-center font-mono text-xs"><span className={canAfford ? '' : 'text-red-900'}>ℂ{cost.toLocaleString()}</span>{canAfford && <Download size={10} />}</div>
+                            <button key={sw.id} disabled={!canAfford} onClick={() => buySoftware(sw.id)} onMouseEnter={() => tooltip && handleMouseEnter(sw.name, `${tooltip} (+${sw.bonus.value} ${sw.bonus.stat})`)} onMouseLeave={handleMouseLeave} className={`w-full text-left p-3 md:p-2 border ${canAfford ? 'hover:bg-white/10 cursor-pointer border-current' : 'border-gray-700 text-gray-600 cursor-not-allowed'} transition-all group relative`}>
+                                <div className="flex justify-between items-center"><span className="font-bold flex items-center gap-2 text-xs md:text-sm"><Icon size={16} /> {sw.name}</span><span className="text-xs border border-current px-1">v{sw.owned}.0</span></div>
+                                <div className="mt-1 flex justify-between items-center font-mono text-xs md:text-sm"><span className={canAfford ? '' : 'text-red-900'}>ℂ{cost.toLocaleString()}</span>{canAfford && <Download size={12} />}</div>
                             </button>
                         );
                     })}
@@ -1154,31 +1393,81 @@ const App: React.FC = () => {
                     {activeShopTab === 'MARKET' && (
                         <div className="space-y-2">
                             {gameState.gameSpeed > 50 && <div className="text-red-500 text-xs text-center border border-red-500 p-1">MARKET OFFLINE (HIGH SPEED)</div>}
-                            {Object.values(gameState.corporations).map(corp => {
+                            {Object.values(gameState.corporations).map((corp: CorpData) => {
                                 const canTrade = gameState.gameSpeed <= 50;
                                 return (
                                     <div key={corp.code} className="border p-2 bg-white/5" style={{ borderColor: `${gameState.uiColor}33` }}>
                                         <div className="flex justify-between items-center mb-1">
-                                            <span className="font-bold text-xs truncate w-24">{corp.name}</span>
+                                            <span className="font-bold text-xs md:text-sm truncate w-24 md:w-32">{corp.name}</span>
                                             <div className="flex items-center gap-1">
-                                                {corp.stockTrend > 0 ? <TrendingUp size={10} className="text-green-500" /> : <TrendingDown size={10} className="text-red-500" />}
-                                                <span className="font-mono text-xs">ℂ{Math.floor(corp.stockPrice)}</span>
+                                                {corp.stockTrend > 0 ? <TrendingUp size={12} className="text-green-500" /> : <TrendingDown size={12} className="text-red-500" />}
+                                                <span className="font-mono text-xs md:text-sm">ℂ{Math.floor(corp.stockPrice)}</span>
                                             </div>
                                         </div>
-                                        <div className="flex justify-between items-center text-[10px] mb-2">
+                                        <div className="flex justify-between items-center text-xs mb-2">
                                             <span className="opacity-70">Owned: {corp.ownedShares}</span>
                                         </div>
-                                        <div className="flex gap-1">
+                                        <div className="flex gap-2">
                                             <button 
                                                 disabled={!canTrade || corp.ownedShares <= 0} 
                                                 onClick={() => sellStock(corp.code, 1)}
-                                                className={`flex-1 py-1 text-xs border ${!canTrade || corp.ownedShares <= 0 ? 'border-gray-700 text-gray-700' : 'border-red-500/50 text-red-500 hover:bg-red-500/10'}`}
+                                                className={`flex-1 py-2 md:py-1 text-xs border ${!canTrade || corp.ownedShares <= 0 ? 'border-gray-700 text-gray-700' : 'border-red-500/50 text-red-500 hover:bg-red-500/10'}`}
                                             >SELL</button>
                                             <button 
                                                 disabled={!canTrade || corp.ownedShares >= (gameState.level * 10) || gameState.cash < corp.stockPrice} 
                                                 onClick={() => buyStock(corp.code, 1)}
-                                                className={`flex-1 py-1 text-xs border ${!canTrade || corp.ownedShares >= (gameState.level * 10) || gameState.cash < corp.stockPrice ? 'border-gray-700 text-gray-700' : 'border-green-500/50 text-green-500 hover:bg-green-500/10'}`}
+                                                className={`flex-1 py-2 md:py-1 text-xs border ${!canTrade || corp.ownedShares >= (gameState.level * 10) || gameState.cash < corp.stockPrice ? 'border-gray-700 text-gray-700' : 'border-green-500/50 text-green-500 hover:bg-green-500/10'}`}
                                             >BUY</button>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+
+                    {activeShopTab === 'AID' && (
+                        <div className="space-y-2">
+                            {CONSUMABLES.map((item) => {
+                                const barterMod = 1 - (gameState.skills.Barter * 0.01);
+                                let priceMult = 1;
+                                if (gameState.economyState === 'BOOM') priceMult = 1.2;
+                                if (gameState.economyState === 'RECESSION') priceMult = 0.9;
+                                const cost = Math.floor(item.baseCost * priceMult * barterMod);
+                                const ownedCount = gameState.inventory[item.id] || 0;
+                                const canAfford = gameState.cash >= cost;
+                                
+                                let Icon = Syringe;
+                                if (item.type === 'MEDICAL') Icon = Syringe;
+                                else if (item.type === 'CHEM') Icon = Pill;
+                                else if (item.type === 'ALCOHOL' || item.type === 'DRINK') Icon = FlaskConical;
+                                else if (item.type === 'SERUM') Icon = Dna;
+
+                                return (
+                                    <div key={item.id} className="border p-2 bg-white/5" style={{ borderColor: `${gameState.uiColor}33` }}>
+                                        <div className="flex justify-between items-center mb-1">
+                                            <div className="flex items-center gap-2">
+                                                <Icon size={14} />
+                                                <span className="font-bold text-xs md:text-sm">{item.name}</span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                 {ownedCount > 0 && <span className="text-xs border px-1 border-current">x{ownedCount}</span>}
+                                                 <span className={`font-mono text-xs md:text-sm ${canAfford ? '' : 'text-red-900'}`}>ℂ{cost}</span>
+                                            </div>
+                                        </div>
+                                        <div className="text-[10px] opacity-70 italic mb-1">{item.effectDescription}</div>
+                                        <div className="flex gap-2">
+                                            <button 
+                                                disabled={!canAfford} 
+                                                onClick={() => buyConsumable(item.id)}
+                                                className={`flex-1 py-1 text-xs border ${!canAfford ? 'border-gray-700 text-gray-700 cursor-not-allowed' : 'hover:bg-white/10'}`}
+                                                style={{ borderColor: canAfford ? gameState.uiColor : 'gray' }}
+                                            >BUY</button>
+                                            <button 
+                                                disabled={ownedCount <= 0} 
+                                                onClick={() => useConsumable(item.id)}
+                                                className={`flex-1 py-1 text-xs border ${ownedCount <= 0 ? 'border-gray-700 text-gray-700 cursor-not-allowed' : 'bg-current text-black hover:bg-white'}`}
+                                                style={{ borderColor: ownedCount > 0 ? gameState.uiColor : 'gray' }}
+                                            >USE</button>
                                         </div>
                                     </div>
                                 );
@@ -1189,16 +1478,27 @@ const App: React.FC = () => {
                     {activeShopTab === 'SYSTEM' && (
                         <div className="space-y-4 p-2">
                              <div>
-                                 <div className="font-bold mb-2">INTERFACE COLOR</div>
-                                 <button onClick={toggleColor} className="w-full border p-2 bg-white/10 hover:bg-white/20" style={{ borderColor: gameState.uiColor }}>
+                                 <div className="font-bold mb-2 text-sm">INTERFACE COLOR</div>
+                                 <button onClick={toggleColor} className="w-full border p-3 md:p-2 bg-white/10 hover:bg-white/20 text-xs md:text-sm" style={{ borderColor: gameState.uiColor }}>
                                      CYCLE DISPLAY SPECTRUM
                                  </button>
                              </div>
                              <div>
-                                 <div className="font-bold mb-2">AUTOMATION PROTOCOLS</div>
+                                 <div className="font-bold mb-2 text-sm">DATA PERSISTENCE</div>
+                                 <div className="grid grid-cols-2 gap-2">
+                                     <button onClick={saveGame} className="border p-2 bg-green-900/10 hover:bg-green-900/30 text-xs md:text-sm flex items-center justify-center gap-2" style={{ borderColor: gameState.uiColor }}>
+                                         <Save size={14} /> SAVE TO DISK
+                                     </button>
+                                     <button onClick={exportSave} className="border p-2 bg-blue-900/10 hover:bg-blue-900/30 text-xs md:text-sm flex items-center justify-center gap-2" style={{ borderColor: gameState.uiColor }}>
+                                         <FileOutput size={14} /> EXPORT LINK
+                                     </button>
+                                 </div>
+                             </div>
+                             <div>
+                                 <div className="font-bold mb-2 text-sm">AUTOMATION PROTOCOLS</div>
                                  <div className="flex items-center justify-between mb-2">
-                                     <span className="text-xs">Auto-Buy Hardware</span>
-                                     <button onClick={() => setGameState(p => p ? {...p, autoBuyHardware: !p.autoBuyHardware} : null)} className={`w-8 h-4 border ${gameState.autoBuyHardware ? 'bg-current' : ''}`} style={{ borderColor: gameState.uiColor }}></button>
+                                     <span className="text-xs md:text-sm">Auto-Buy Hardware</span>
+                                     <button onClick={() => setGameState(p => p ? {...p, autoBuyHardware: !p.autoBuyHardware} : null)} className={`w-10 h-6 md:w-8 md:h-4 border ${gameState.autoBuyHardware ? 'bg-current' : ''}`} style={{ borderColor: gameState.uiColor }}></button>
                                  </div>
                              </div>
                         </div>
@@ -1207,7 +1507,7 @@ const App: React.FC = () => {
              </div>
              
              <div className="mt-auto border-t pt-4" style={{ borderColor: `${gameState.uiColor}50` }} onMouseEnter={() => handleMouseEnter("MITRE ATT&CK Matrix", "Visualizes the cyber kill-chain. Mouse over specific active cells (lit up) for detailed educational information about the technique.")} onMouseLeave={handleMouseLeave}>
-                <div className="flex justify-between items-center mb-2"><span className="text-[10px] opacity-70 uppercase tracking-widest">ATT&CK Matrix</span><span className="text-[10px] opacity-50">Active Session</span></div>
+                <div className="flex justify-between items-center mb-2"><span className="text-xs opacity-70 uppercase tracking-widest">ATT&CK Matrix</span><span className="text-[10px] opacity-50">Active Session</span></div>
                 <div className="grid grid-cols-7 gap-1">
                     {KILL_CHAIN_PHASES.map((phase, i) => (
                         <div key={i} className="flex flex-col gap-1 items-center">
@@ -1224,7 +1524,7 @@ const App: React.FC = () => {
                                  return (
                                      <div 
                                         key={j} 
-                                        className={`w-full h-2 border ${bgClass} ${opacityClass} transition-all duration-300`}
+                                        className={`w-full h-3 md:h-2 border ${bgClass} ${opacityClass} transition-all duration-300`}
                                         style={{ borderColor: gameState.uiColor }}
                                         onMouseEnter={(e) => {
                                             e.stopPropagation(); 

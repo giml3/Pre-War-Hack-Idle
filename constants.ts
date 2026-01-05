@@ -1,4 +1,4 @@
-import { Job, Upgrade, Unlockable, KillChainPhase, VaultRoom, Skill, Software, Target, TechniqueDetail, Faction, Achievement, CorpData } from './types';
+import { Job, Upgrade, Unlockable, KillChainPhase, VaultRoom, Skill, Software, Target, TechniqueDetail, Faction, Achievement, CorpData, Consumable, Mutation } from './types';
 
 export const SKILL_DEFINITIONS: Skill[] = [
   { name: 'Science', value: 0, attribute: 'I', description: 'Hacking efficiency and success rate.' },
@@ -407,3 +407,82 @@ STOCK_MARKET_COMPANIES.forEach((comp, idx) => {
         difficulty: (idx % 10) + 1
     });
 });
+
+// --- RANDOM GENERATION ARRAYS ---
+export const RANDOM_FIRST_NAMES = [
+  "Jack", "Sarah", "Neo", "Trinity", "Morpheus", "Case", "Molly", "Deckard", "Rachael", "Motoko", "Batou", 
+  "Hiro", "Y.T.", "Cayce", "Flynn", "Quorra", "Max", "Furiosa", "K", "Joi", "V", "Evey", 
+  "Korben", "Leeloo", "Johnny", "Spider", "Strange", "Cage", "Reese", "Connor", "Ripley", "Bishop",
+  "Cipher", "Switch", "Tank", "Dozer", "Mouse", "Apoc", "Cypher", "Dujour"
+];
+
+export const RANDOM_LAST_NAMES = [
+  "Gibson", "Sterling", "Dick", "Asimov", "Bradbury", "Orwell", "Huxley", "Clarke", "Heinlein", "Herbert", 
+  "Ellison", "Shelley", "Verne", "Wells", "Lovecraft", "Poe", "King", "Barker", "Gaiman", "Pratchett",
+  "Silverhand", "Blackhand", "Weyland", "Yutani", "Tyrell", "Wallace", "Stark", "Wayne", "Banner", "Parker",
+  "Mnemonic", "Utah", "Archer", "Stone", "Frost", "Winter", "Steele", "Chrome", "Neon"
+];
+
+export const RANDOM_NICKNAMES = [
+  "Zero", "Crash", "Burn", "Glitch", "Bug", "Patch", "Root", "Admin", "User", "Guest",
+  "Daemon", "Ghost", "Spectre", "Phantom", "Wraith", "Spirit", "Soul", "Shadow", "Shade", "Dark",
+  "Light", "Spark", "Flash", "Bolt", "Surge", "Pulse", "Wave", "Signal", "Noise", "Static",
+  "Bit", "Byte", "Nibble", "Word", "Dword", "Qword", "Float", "Double", "Char", "String",
+  "Null", "Void", "Abyss", "Deep", "Net", "Web", "Grid", "Matrix", "Cyberspace", "Metaverse"
+];
+
+export const RANDOM_JOB_TITLES = [
+  "Script Kiddie", "Grey Hat", "Black Hat", "White Hat", "Hacktivist", "Cyber Mercenary", "Netrunner", "Console Cowboy", "Data Jockey", "Info Broker",
+  "System Admin", "Network Engineer", "Security Analyst", "Penetration Tester", "Cryptographer", "Reverse Engineer", "Malware Analyst", "Forensic Investigator", "Incident Responder", "Threat Hunter",
+  "Digital Nomad", "Tech Scavenger", "Hardware Hacker", "Phreaker", "Social Engineer", "Corporate Spy", "Industrial Saboteur", "Government Agent", "Rogue AI", "Ghost in the Machine"
+];
+
+export const RANDOM_JOB_DESCRIPTIONS = [
+  "Just trying to survive in the sprawl.", "Looking for the next big score.", "Fighting the system from the inside.", "Protecting the innocent from digital threats.", "Causing chaos for fun and profit.",
+  "Seeking the truth hidden in the data.", "Building a better future, one line of code at a time.", "Escaping the harsh reality of the wasteland.", "Avenge a fallen comrade.", "Uncovering corporate secrets.",
+  "Searching for a lost AI consciousness.", "Repaying a debt to a crime lord.", "Hiding from a powerful enemy.", "Looking for a way off this rock.", "Just bored and talented."
+];
+
+export const CONSUMABLES: Consumable[] = [
+    { id: 'c1', name: 'Stimpak', description: 'Coolant Flush.', effectDescription: 'Heat -30', baseCost: 50, type: 'MEDICAL', addictionChance: 0, duration: 0, effects: { heat: -30 } },
+    { id: 'c2', name: 'Super Stimpak', description: 'Emergency Flush.', effectDescription: 'Heat -60', baseCost: 120, type: 'MEDICAL', addictionChance: 0, duration: 0, effects: { heat: -60 } },
+    { id: 'c3', name: 'RadAway', description: 'Decontamination.', effectDescription: 'Rads -300', baseCost: 80, type: 'MEDICAL', addictionChance: 0, duration: 0, effects: { rads: -300 } },
+    { id: 'c4', name: 'Rad-X', description: 'Shielding.', effectDescription: 'Rad Resistance', baseCost: 60, type: 'MEDICAL', addictionChance: 0, duration: 300000, effects: { } }, // Rad resist implemented via logic check
+    { id: 'c5', name: 'Mentats', description: 'Chalky tablets.', effectDescription: 'INT +2, Hack Speed +10%', baseCost: 40, type: 'CHEM', addictionChance: 0.1, duration: 180000, effects: { stat: { I: 2 }, speed: 0.1 } },
+    { id: 'c6', name: 'Psycho', description: 'Adrenaline injector.', effectDescription: 'Hack Speed +25%', baseCost: 50, type: 'CHEM', addictionChance: 0.15, duration: 180000, effects: { speed: 0.25 } },
+    { id: 'c7', name: 'Jet', description: 'Inhaler.', effectDescription: 'Hack Speed +50%, Heat Gen +20%', baseCost: 35, type: 'CHEM', addictionChance: 0.2, duration: 60000, effects: { speed: 0.5, heatGen: 0.2 } },
+    { id: 'c8', name: 'Fixer', description: 'Addiction cure.', effectDescription: 'Removes all addictions', baseCost: 150, type: 'MEDICAL', addictionChance: 0, duration: 0, effects: {} }, // Special logic
+    { id: 'c9', name: 'Nuka-Cola Quantum', description: 'Glowing blue soda.', effectDescription: 'Speed +100%, Rads +50', baseCost: 200, type: 'DRINK', addictionChance: 0.05, duration: 120000, effects: { speed: 1.0, rads: 50 } },
+    { id: 'c10', name: 'Mutagenic Serum', description: 'Unstable compounds.', effectDescription: 'Grants Random Mutation', baseCost: 500, type: 'SERUM', addictionChance: 0, duration: 0, effects: {} }, // Special logic
+    { id: 'c11', name: 'Med-X', description: 'Painkiller.', effectDescription: 'Heat Resist +20%', baseCost: 45, type: 'MEDICAL', addictionChance: 0.1, duration: 240000, effects: { heatGen: -0.2 } },
+    { id: 'c12', name: 'Buffout', description: 'Steroids.', effectDescription: 'END +2, STR +2', baseCost: 45, type: 'CHEM', addictionChance: 0.1, duration: 240000, effects: { stat: { E: 2, S: 2 } } },
+    { id: 'c13', name: 'Addictol', description: 'Addiction flush.', effectDescription: 'Cures addictions', baseCost: 120, type: 'MEDICAL', addictionChance: 0, duration: 0, effects: {} },
+    { id: 'c14', name: 'Whiskey', description: 'Old fashion.', effectDescription: 'STR +1, INT -1', baseCost: 10, type: 'ALCOHOL', addictionChance: 0.1, duration: 120000, effects: { stat: { S: 1, I: -1 } } },
+    { id: 'c15', name: 'Day Tripper', description: 'Relaxant.', effectDescription: 'CHA +3, STR -2, Luck +2', baseCost: 40, type: 'CHEM', addictionChance: 0.15, duration: 180000, effects: { stat: { C: 3, S: -2, L: 2 } } },
+    { id: 'c16', name: 'X-Cell', description: 'Prototype.', effectDescription: 'All SPECIAL +2', baseCost: 300, type: 'CHEM', addictionChance: 0.2, duration: 120000, effects: { stat: { S: 2, P: 2, E: 2, C: 2, I: 2, A: 2, L: 2 } } },
+    { id: 'c17', name: 'Berry Mentats', description: 'Flavorful.', effectDescription: 'INT +5', baseCost: 60, type: 'CHEM', addictionChance: 0.1, duration: 180000, effects: { stat: { I: 5 } } },
+    { id: 'c18', name: 'Grape Mentats', description: 'Flavorful.', effectDescription: 'CHA +5', baseCost: 60, type: 'CHEM', addictionChance: 0.1, duration: 180000, effects: { stat: { C: 5 } } },
+    { id: 'c19', name: 'Orange Mentats', description: 'Flavorful.', effectDescription: 'PER +5', baseCost: 60, type: 'CHEM', addictionChance: 0.1, duration: 180000, effects: { stat: { P: 5 } } },
+    { id: 'c20', name: 'Overdrive', description: 'Combat drug.', effectDescription: 'Crit Chance +25%', baseCost: 70, type: 'CHEM', addictionChance: 0.15, duration: 180000, effects: { crit: 0.25 } },
+    { id: 'c21', name: 'Dirty Wastelander', description: 'Cocktail.', effectDescription: 'STR +3, INT -2', baseCost: 20, type: 'ALCOHOL', addictionChance: 0.15, duration: 120000, effects: { stat: { S: 3, I: -2 } } },
+    { id: 'c22', name: 'Daddy-O', description: 'Beatnik drug.', effectDescription: 'INT +3, PER +3, CHA -2', baseCost: 40, type: 'CHEM', addictionChance: 0.1, duration: 180000, effects: { stat: { I: 3, P: 3, C: -2 } } },
+    { id: 'c23', name: 'Calmex', description: 'Sedative.', effectDescription: 'PER +3, AGI +3, Crit Dmg (flat speed) +10%', baseCost: 80, type: 'CHEM', addictionChance: 0.05, duration: 240000, effects: { stat: { P: 3, A: 3 }, speed: 0.1 } },
+    { id: 'c24', name: 'Fury', description: 'Melee boost.', effectDescription: 'STR +5, PER -3', baseCost: 65, type: 'CHEM', addictionChance: 0.25, duration: 120000, effects: { stat: { S: 5, P: -3 } } },
+    { id: 'c25', name: 'PsychoBuff', description: 'Combo.', effectDescription: 'STR +3, END +3, Speed +25%', baseCost: 90, type: 'CHEM', addictionChance: 0.2, duration: 180000, effects: { stat: { S: 3, E: 3 }, speed: 0.25 } },
+    { id: 'c26', name: 'PsychoJet', description: 'Combo.', effectDescription: 'Speed +60%, Heat Gen +25%', baseCost: 80, type: 'CHEM', addictionChance: 0.25, duration: 45000, effects: { speed: 0.6, heatGen: 0.25 } },
+    { id: 'c27', name: 'Bufftats', description: 'Combo.', effectDescription: 'STR +3, END +3, PER +3, INT +3', baseCost: 90, type: 'CHEM', addictionChance: 0.2, duration: 180000, effects: { stat: { S: 3, E: 3, P: 3, I: 3 } } },
+    { id: 'c28', name: 'Ultra Jet', description: 'Pure.', effectDescription: 'Speed +80%, Heat Gen +40%, Rads +10', baseCost: 100, type: 'CHEM', addictionChance: 0.4, duration: 30000, effects: { speed: 0.8, heatGen: 0.4, rads: 10 } }
+];
+
+export const MUTATIONS: Mutation[] = [
+    { id: 'm1', name: 'Marsupial', description: 'Increased capacity, reduced intellect.', positive: '+20% Cash Yield', negative: '-2 INT', effects: { cash: 0.2, stat: { I: -2 } } },
+    { id: 'm2', name: 'Adrenal Reaction', description: 'Performance increases with heat.', positive: 'High Heat = High Speed', negative: '-10 Max Heat', effects: { speed: 0.1, heatGen: 0.1 } },
+    { id: 'm3', name: 'Bird Bones', description: 'Lighter frame.', positive: '+2 AGI', negative: '-1 STR', effects: { stat: { A: 2, S: -1 } } },
+    { id: 'm4', name: 'Eagle Eyes', description: 'Critical focus.', positive: '+25% Crit Chance', negative: '-2 STR', effects: { crit: 0.25, stat: { S: -2 } } },
+    { id: 'm5', name: 'Egg Head', description: 'Big brain time.', positive: '+3 INT', negative: '-1 END, -1 STR', effects: { stat: { I: 3, E: -1, S: -1 } } },
+    { id: 'm6', name: 'Healing Factor', description: 'Rapid regeneration.', positive: 'Heat Decay +50%', negative: '-50% Chem Duration', effects: { heatGen: -0.5 } }, // Simplified logic: reducing active heat gen acts as decay
+    { id: 'm7', name: 'Scaly Skin', description: 'Hardened exterior.', positive: 'Heat Resist +20%', negative: '-10% Speed', effects: { heatGen: -0.2, speed: -0.1 } },
+    { id: 'm8', name: 'Speed Demon', description: 'Gotta go fast.', positive: '+20% Speed', negative: '+20% Hunger (Cash drain)', effects: { speed: 0.2 } },
+    { id: 'm9', name: 'Empath', description: 'Team player.', positive: '+2 CHA', negative: '+10% Heat Gen', effects: { stat: { C: 2 }, heatGen: 0.1 } },
+    { id: 'm10', name: 'Unstable Isotope', description: 'Radioactive.', positive: 'Randomly radiate enemies (Free Crits)', negative: 'Constant minor Rad gain', effects: { crit: 0.1 } }
+];

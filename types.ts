@@ -95,7 +95,7 @@ export interface LogEntry {
   id: number;
   timestamp: string;
   message: string;
-  type: 'info' | 'success' | 'warning' | 'error' | 'system' | 'phase' | 'bounty' | 'story';
+  type: 'info' | 'success' | 'warning' | 'error' | 'system' | 'phase' | 'bounty' | 'story' | 'mutation';
 }
 
 export interface Target {
@@ -173,6 +173,49 @@ export interface Achievement {
     unlocked: boolean;
 }
 
+export interface Consumable {
+    id: string;
+    name: string;
+    description: string;
+    effectDescription: string;
+    baseCost: number;
+    type: 'MEDICAL' | 'CHEM' | 'ALCOHOL' | 'FOOD' | 'DRINK' | 'SERUM' | 'OTHER';
+    addictionChance: number; // 0-1
+    duration: number; // ms
+    effects: {
+        stat?: Partial<Record<keyof Special, number>>;
+        heat?: number; // Instant reduction (negative) or increase (positive)
+        rads?: number; // Instant reduction (negative) or increase (positive)
+        speed?: number; // Multiplier (e.g. 0.1 = +10%)
+        heatGen?: number; // Multiplier
+        crit?: number; // Flat
+        xp?: number; // Multiplier
+    }
+}
+
+export interface Mutation {
+    id: string;
+    name: string;
+    description: string;
+    positive: string;
+    negative: string;
+    effects: {
+        stat?: Partial<Record<keyof Special, number>>;
+        speed?: number;
+        heatGen?: number;
+        crit?: number;
+        cash?: number;
+    }
+}
+
+export interface ActiveEffect {
+    id: string;
+    name: string;
+    expiresAt: number;
+    sourceId: string;
+    effects: Consumable['effects'];
+}
+
 export interface GameState {
   cash: number;
   xp: number;
@@ -234,6 +277,13 @@ export interface GameState {
   totalHacks: number;
   techniqueCounts: Record<string, number>;
   currentTarget: Target;
+  
+  // Items & Status
+  inventory: Record<string, number>; // itemId -> count
+  activeEffects: ActiveEffect[];
+  mutations: string[]; // Mutation IDs
+  playerRadiation: number; // 0-1000, affects stats/max heat
+  addictions: string[]; // Consumable IDs
   
   // Meta
   uiColor: string;
