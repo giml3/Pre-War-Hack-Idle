@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import CharacterCreation from './components/CharacterCreation';
+import TerminalLog from './components/TerminalLog';
 import { LeftPanel } from './components/LeftPanel';
 import { RightPanel } from './components/RightPanel';
 import { CenterPanel } from './components/CenterPanel';
 import MitreMatrix from './components/MitreMatrix';
 import { INITIAL_JOBS, INITIAL_UPGRADES, INITIAL_UNLOCKABLES, INITIAL_SOFTWARE, LEVEL_THRESHOLDS, KILL_CHAIN_PHASES, VAULT_LAYOUT, PRE_WAR_NEWS, THREAT_CONFIG, LIFESTYLE_CONFIG, STOCK_MARKET_COMPANIES, TARGET_REGISTRY, FACTION_DEFINITIONS, INITIAL_ACHIEVEMENTS, CONSUMABLES, MUTATIONS } from './constants';
-import { GameState, Job, LogEntry, Target, SkillName, Special, CorpData, PlayerActivity, EconomyState, Bounty, Faction, Message, Mutation } from './types';
-import { Globe } from 'lucide-react';
+import { GameState, Job, LogEntry, Target, SkillName, Special, CorpData, PlayerActivity, EconomyState, Bounty, Faction, Message, Mutation, ActiveEffect } from './types';
+import { 
+  Globe, LayoutDashboard, Terminal, ShoppingCart, Map, Menu
+} from 'lucide-react';
 
 const FAILURE_REASONS = [
     "Connection Refused by Peer",
@@ -61,9 +64,12 @@ const rollDice = (exploding: boolean = true): { total: number, rolls: number[] }
 const App: React.FC = () => {
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [activeTab, setActiveTab] = useState<'SPECIAL' | 'SKILLS' | 'INTEL' | 'FACTIONS'>('SPECIAL');
-  const [activeShopTab, setActiveShopTab] = useState<'HARDWARE' | 'SOFTWARE' | 'MARKET' | 'AID' | 'SYSTEM'>('HARDWARE');
+  const [activeShopTab, setActiveShopTab] = useState<'HARDWARE' | 'SOFTWARE' | 'MARKET' | 'SYSTEM' | 'AID' | 'LIFESTYLE'>('HARDWARE');
   const [activeCenterTab, setActiveCenterTab] = useState<'TERMINAL' | 'INBOX' | 'DATABASE'>('TERMINAL');
   
+  // Mobile Navigation State
+  const [mobileTab, setMobileTab] = useState<'STATUS' | 'TERMINAL' | 'SUPPLY' | 'VISUAL'>('TERMINAL');
+
   // UI State
   const [hoverInfo, setHoverInfo] = useState<{title: string, body: string} | null>(null);
   const [currentNewsIndex, setCurrentNewsIndex] = useState(0);
@@ -72,6 +78,7 @@ const App: React.FC = () => {
   // Game loop refs
   const stateRef = useRef<GameState | null>(null);
   const lastPhaseRef = useRef<number>(-1);
+  const matrixTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastJobPayTimeRef = useRef<number>(0);
   const lastMarketUpdateRef = useRef<number>(0);
   
@@ -173,7 +180,6 @@ const App: React.FC = () => {
         factions[fac.id] = { ...fac };
     });
 
-    // Init Shop Stock
     const shopStock: Record<string, number> = {};
     CONSUMABLES.forEach(c => {
         shopStock[c.id] = Math.floor(Math.random() * 20) + 5; 
@@ -217,7 +223,7 @@ const App: React.FC = () => {
       autoBuySoftware: false,
       autoBuyConsumables: false,
       shopStock,
-      lastRestockDay: 0, // Approx
+      lastRestockDay: 0, 
       logs: [],
       messages: [welcomeMsg],
       achievements: INITIAL_ACHIEVEMENTS,
@@ -239,7 +245,7 @@ const App: React.FC = () => {
       marketLastUpdate: startDate,
       globalRadiation: 15,
       uiColor: '#ffb000',
-      tutorialStep: 0, // Disabled
+      tutorialStep: 0,
       inventory: {},
       activeEffects: [],
       mutations: [],
@@ -876,6 +882,25 @@ const App: React.FC = () => {
           return prev;
       });
   };
+  
+  const setLifestyle = (level: number) => {
+      setGameState(prev => {
+          if (!prev) return null;
+          const config = LIFESTYLE_CONFIG.find(l => l.level === level);
+          if (!config) return prev;
+          
+          return {
+              ...prev,
+              lifestyleLevel: level,
+              logs: [...prev.logs, { 
+                  id: Date.now(), 
+                  timestamp: "LIFESTYLE", 
+                  message: `Relocated to ${config.name}. Daily expenses updated.`, 
+                  type: 'info' 
+              } as LogEntry].slice(-50)
+          };
+      });
+  };
 
   const spendPoint = (type: 'SPECIAL' | 'SKILL', key: string) => {
       setGameState(prev => {
@@ -931,7 +956,7 @@ const App: React.FC = () => {
   if (!gameState) return <CharacterCreation onSelect={handleJobSelect} onLoad={loadGame} onImport={importSave} hasLocalSave={hasLocalSave} />;
 
   return (
-    <div className="flex h-screen w-screen p-1 bg-black overflow-hidden transition-colors duration-500" style={{ color: gameState.uiColor }}>
+    <div className="flex flex-col h-screen w-screen p-1 bg-black overflow-hidden transition-colors duration-500" style={{ color: gameState.uiColor }}>
       
       {/* Tooltip Overlay */}
       {hoverInfo && (
@@ -941,8 +966,8 @@ const App: React.FC = () => {
           </div>
       )}
 
-      {/* NEWS TICKER */}
-      <div className="fixed bottom-0 left-0 w-full bg-black h-5 flex items-center overflow-hidden z-50 border-t" style={{ borderColor: gameState.uiColor, color: gameState.uiColor }}>
+      {/* NEWS TICKER (TOP) */}
+      <div className="w-full bg-black h-5 flex items-center overflow-hidden z-40 border-b shrink-0 mb-1" style={{ borderColor: gameState.uiColor, color: gameState.uiColor }}>
            <div className="whitespace-nowrap animate-[marquee_20s_linear_infinite] px-4 font-bold text-xs uppercase flex items-center gap-8">
                <Globe size={10} />
                <span>BREAKING NEWS: {PRE_WAR_NEWS[currentNewsIndex]}</span>
@@ -951,12 +976,13 @@ const App: React.FC = () => {
            </div>
       </div>
 
-      <div className="w-full h-[calc(100vh-1.5rem)] flex flex-col gap-1 pb-1">
+      <div className="flex-1 flex flex-col gap-1 min-h-0 relative">
         
         {/* Top Section: Panels */}
-        <div className="flex-1 flex gap-1 min-h-0">
-            {/* Left Panel: Fixed Width */}
-            <div className="w-60 shrink-0 flex flex-col">
+        <div className={`flex-1 flex gap-1 min-h-0 ${mobileTab === 'VISUAL' ? 'hidden md:flex' : 'flex'}`}>
+            
+            {/* Left Panel: Stats */}
+            <div className={`w-full md:w-60 shrink-0 flex flex-col ${mobileTab === 'STATUS' ? 'flex' : 'hidden md:flex'}`}>
                 <LeftPanel 
                     gameState={gameState} 
                     activeTab={activeTab} 
@@ -965,31 +991,34 @@ const App: React.FC = () => {
                 />
             </div>
 
-            {/* Center Panel: Flex Grow */}
-            <CenterPanel 
-                gameState={gameState} 
-                activeCenterTab={activeCenterTab} 
-                setActiveCenterTab={setActiveCenterTab}
-                handleMouseEnter={handleMouseEnter}
-                handleMouseLeave={handleMouseLeave}
-                onCommand={handleCommand}
-            />
+            {/* Center Panel: Terminal */}
+            <div className={`flex-1 flex flex-col min-w-0 ${mobileTab === 'TERMINAL' ? 'flex' : 'hidden md:flex'}`}>
+                <CenterPanel 
+                    gameState={gameState} 
+                    activeCenterTab={activeCenterTab} 
+                    setActiveCenterTab={setActiveCenterTab}
+                    handleMouseEnter={handleMouseEnter}
+                    handleMouseLeave={handleMouseLeave}
+                    onCommand={handleCommand}
+                />
+            </div>
 
-            {/* Right Panel: Fixed Width */}
-            <div className="w-60 shrink-0 flex flex-col">
+            {/* Right Panel: Shop */}
+            <div className={`w-full md:w-60 shrink-0 flex flex-col ${mobileTab === 'SUPPLY' ? 'flex' : 'hidden md:flex'}`}>
                 <RightPanel 
                     gameState={gameState} 
                     activeShopTab={activeShopTab} 
                     setActiveShopTab={setActiveShopTab}
                     handlers={{
-                        buyUpgrade, buySoftware, buyConsumable, useConsumable, buyStock, sellStock, toggleAutoBuy, setUiColor, setGameSpeed
+                        buyUpgrade, buySoftware, buyConsumable, useConsumable, buyStock, sellStock, toggleAutoBuy, setUiColor, setGameSpeed,
+                        setLifestyle
                     }}
                 />
             </div>
         </div>
 
         {/* Bottom Section: Full Width Matrix */}
-        <div className="shrink-0 h-48 md:h-1/3">
+        <div className={`shrink-0 ${mobileTab === 'VISUAL' ? 'flex-1 h-full' : 'hidden md:block md:h-48'} transition-all`}>
             <MitreMatrix 
                 gameState={gameState} 
                 handleMouseEnter={handleMouseEnter} 
@@ -998,6 +1027,42 @@ const App: React.FC = () => {
         </div>
 
       </div>
+
+      {/* MOBILE NAVIGATION BAR (BOTTOM) */}
+      <div className="md:hidden h-12 border-t mt-1 flex shrink-0 bg-black z-50" style={{ borderColor: gameState.uiColor }}>
+           <button 
+               onClick={() => setMobileTab('STATUS')} 
+               className={`flex-1 flex flex-col items-center justify-center gap-1 border-r ${mobileTab === 'STATUS' ? 'bg-current text-black' : 'text-current'}`}
+               style={{ borderColor: gameState.uiColor }}
+           >
+               <LayoutDashboard size={16} />
+               <span className="text-[9px] font-bold">STATUS</span>
+           </button>
+           <button 
+               onClick={() => setMobileTab('TERMINAL')} 
+               className={`flex-1 flex flex-col items-center justify-center gap-1 border-r ${mobileTab === 'TERMINAL' ? 'bg-current text-black' : 'text-current'}`}
+               style={{ borderColor: gameState.uiColor }}
+           >
+               <Terminal size={16} />
+               <span className="text-[9px] font-bold">TERM</span>
+           </button>
+           <button 
+               onClick={() => setMobileTab('SUPPLY')} 
+               className={`flex-1 flex flex-col items-center justify-center gap-1 border-r ${mobileTab === 'SUPPLY' ? 'bg-current text-black' : 'text-current'}`}
+               style={{ borderColor: gameState.uiColor }}
+           >
+               <ShoppingCart size={16} />
+               <span className="text-[9px] font-bold">SUPPLY</span>
+           </button>
+           <button 
+               onClick={() => setMobileTab('VISUAL')} 
+               className={`flex-1 flex flex-col items-center justify-center gap-1 ${mobileTab === 'VISUAL' ? 'bg-current text-black' : 'text-current'}`}
+           >
+               <Map size={16} />
+               <span className="text-[9px] font-bold">MAP</span>
+           </button>
+      </div>
+
     </div>
   );
 };

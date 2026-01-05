@@ -1,9 +1,9 @@
 import React from 'react';
 import { GameState, CorpData } from '../types';
 import { RetroPanel, RetroButton } from './RetroUI';
-import { CONSUMABLES } from '../constants';
+import { CONSUMABLES, LIFESTYLE_CONFIG } from '../constants';
 
-type ShopTab = 'HARDWARE' | 'SOFTWARE' | 'MARKET' | 'AID' | 'SYSTEM';
+type ShopTab = 'HARDWARE' | 'SOFTWARE' | 'MARKET' | 'AID' | 'LIFESTYLE' | 'SYSTEM';
 
 interface Props {
     gameState: GameState;
@@ -19,6 +19,7 @@ interface Props {
         toggleAutoBuy: (type: 'HARDWARE' | 'SOFTWARE' | 'AID') => void;
         setUiColor: (color: string) => void;
         setGameSpeed: (speed: number) => void;
+        setLifestyle: (level: number) => void;
     }
 }
 
@@ -30,7 +31,7 @@ export const RightPanel: React.FC<Props> = ({ gameState, activeShopTab, setActiv
         <div className="flex-1 flex flex-col gap-1 overflow-hidden">
              <RetroPanel uiColor={gameState.uiColor} title="SUPPLY" className="h-full">
                 <div className="flex flex-wrap gap-[2px] mb-1">
-                    {(['HARDWARE', 'SOFTWARE', 'MARKET', 'AID', 'SYSTEM'] as const).map(tab => (
+                    {(['HARDWARE', 'SOFTWARE', 'MARKET', 'AID', 'LIFESTYLE', 'SYSTEM'] as const).map(tab => (
                         <RetroButton 
                             key={tab} 
                             active={activeShopTab === tab} 
@@ -97,6 +98,30 @@ export const RightPanel: React.FC<Props> = ({ gameState, activeShopTab, setActiv
                             <div className="flex gap-[2px] h-full items-center shrink-0">
                                 <button onClick={() => handlers.buyConsumable(c.id)} className="px-[2px] border border-[#ffb000]/50 bg-[#ffb000]/10 hover:bg-[#ffb000]/30 h-6 flex items-center min-w-[24px] justify-center font-mono text-[8px]">{c.baseCost}</button>
                                 <button onClick={() => handlers.useConsumable(c.id)} className="px-[2px] border border-green-500/50 bg-green-500/10 hover:bg-green-500/30 h-6 flex items-center text-green-400 text-[8px]">USE</button>
+                            </div>
+                        </div>
+                    ))}
+                    
+                    {activeShopTab === 'LIFESTYLE' && LIFESTYLE_CONFIG.map(l => (
+                        <div key={l.level} className={`border p-2 mb-1 flex flex-col gap-1 ${gameState.lifestyleLevel === l.level ? 'bg-white/10 border-current' : 'border-white/20 opacity-80'}`} style={{ borderColor: gameState.uiColor }}>
+                            <div className="flex justify-between items-center">
+                                <span className="font-bold text-[9px] uppercase">{l.name}</span>
+                                <span className="text-[9px] font-mono">{l.dailyCost}C/Day</span>
+                            </div>
+                            <div className="text-[8px] italic opacity-70">"{l.desc}"</div>
+                            <div className="flex justify-between items-end mt-1">
+                                 <div className="flex flex-col text-[8px]">
+                                     <span>XP: x{l.xpMult}</span>
+                                     <span className="text-green-400">{l.buff}</span>
+                                 </div>
+                                 <button 
+                                    onClick={() => handlers.setLifestyle(l.level)}
+                                    disabled={gameState.lifestyleLevel === l.level}
+                                    className={`px-2 py-[1px] text-[8px] border ${gameState.lifestyleLevel === l.level ? 'bg-current text-black font-bold' : 'hover:bg-white/20'}`}
+                                    style={{ borderColor: gameState.uiColor }}
+                                 >
+                                     {gameState.lifestyleLevel === l.level ? 'RESIDING' : 'MOVE IN'}
+                                 </button>
                             </div>
                         </div>
                     ))}
