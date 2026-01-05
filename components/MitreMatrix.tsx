@@ -86,9 +86,9 @@ const MapView: React.FC<{ gameState: GameState }> = ({ gameState }) => {
                     {events.map((e, i) => (
                         <div key={e.id} className="mb-2">
                             <span className="opacity-50">[{e.timestamp.split(' ')[0]}]</span><br/>
-                            {e.type === 'phase' && <span className="font-bold">> INIT PHASE:</span>}
-                            {e.type === 'warning' && <span className="text-red-400 font-bold">> FAILURE:</span>}
-                            {e.type === 'success' && <span className="font-bold underline">> SUCCESS:</span>}
+                            {e.type === 'phase' && <span className="font-bold">&gt; INIT PHASE:</span>}
+                            {e.type === 'warning' && <span className="text-red-400 font-bold">&gt; FAILURE:</span>}
+                            {e.type === 'success' && <span className="font-bold underline">&gt; SUCCESS:</span>}
                             <br/>
                             <span className="pl-2 block truncate">{e.message.replace(/\[.*?\]/, '').trim()}</span>
                         </div>
