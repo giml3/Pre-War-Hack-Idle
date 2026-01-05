@@ -1,9 +1,10 @@
 import React from 'react';
 import { GameState } from '../types';
 import TerminalLog from './TerminalLog';
+import NetworkPanel from './NetworkPanel';
 import { RetroButton } from './RetroUI';
 
-type CenterTab = 'TERMINAL' | 'INBOX' | 'DATABASE';
+type CenterTab = 'TERMINAL' | 'INBOX' | 'DATABASE' | 'NETWORK';
 
 interface Props {
     gameState: GameState;
@@ -12,15 +13,16 @@ interface Props {
     handleMouseEnter: (title: string, body: string) => void;
     handleMouseLeave: () => void;
     onCommand: (cmd: string) => void;
+    onAid: (peerId: string) => void;
 }
 
 export const CenterPanel: React.FC<Props> = ({ 
-    gameState, activeCenterTab, setActiveCenterTab, onCommand 
+    gameState, activeCenterTab, setActiveCenterTab, onCommand, onAid
 }) => {
     return (
         <div className="flex-1 flex flex-col border h-full min-h-0 relative" style={{ borderColor: gameState.uiColor }}>
              <div className="flex border-b shrink-0" style={{ borderColor: gameState.uiColor }}>
-                 {(['TERMINAL', 'INBOX', 'DATABASE'] as const).map(tab => (
+                 {(['TERMINAL', 'INBOX', 'NETWORK', 'DATABASE'] as const).map(tab => (
                       <RetroButton 
                         key={tab} 
                         active={activeCenterTab === tab}
@@ -36,6 +38,9 @@ export const CenterPanel: React.FC<Props> = ({
              <div className="flex-1 overflow-hidden relative flex flex-col min-h-0">
                  {activeCenterTab === 'TERMINAL' && (
                     <TerminalLog logs={gameState.logs} onCommand={onCommand} uiColor={gameState.uiColor} />
+                 )}
+                 {activeCenterTab === 'NETWORK' && (
+                    <NetworkPanel peers={gameState.peers} onAid={onAid} uiColor={gameState.uiColor} />
                  )}
                  {activeCenterTab === 'INBOX' && (
                      <div className="p-2 overflow-y-auto h-full scrollbar-thin">

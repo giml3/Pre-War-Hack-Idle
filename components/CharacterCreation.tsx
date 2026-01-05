@@ -130,12 +130,16 @@ const CharacterCreation: React.FC<Props> = ({ onSelect, onLoad, onImport, hasLoc
         <div className="flex flex-col md:flex-row gap-4 md:gap-8 mt-2 md:mt-4">
           {/* List */}
           <div className="flex-1 flex flex-col gap-2">
+            
+            {/* ENHANCED RANDOMIZE BUTTON */}
             <button 
                 onClick={randomize}
-                className={`w-full p-3 border border-[#ffb000] ${isCustom ? 'bg-[#ffb000] text-black' : 'bg-[#ffb000]/10 hover:bg-[#ffb000]/20 text-[#ffb000]'} font-bold uppercase flex items-center justify-center gap-2 mb-2 transition-colors`}
+                className={`w-full p-4 border-2 ${isCustom ? 'border-[#ffb000] bg-[#ffb000] text-black shadow-[0_0_15px_#ffb000]' : 'border-green-400 text-green-400 hover:bg-green-400/20'} font-black text-lg uppercase flex items-center justify-center gap-3 mb-4 transition-all duration-300 animate-pulse`}
             >
-                <Shuffle size={20} /> Randomize Identity
+                <Shuffle size={24} /> 
+                {isCustom ? "IDENTITY RANDOMIZED" : "RANDOMIZE IDENTITY"}
             </button>
+
             <div className="h-48 md:h-[500px] overflow-y-auto border border-[#ffb000]/50 p-2 scrollbar-thin">
                 {INITIAL_JOBS.map((job) => (
                 <button

@@ -5,8 +5,8 @@ import { LeftPanel } from './components/LeftPanel';
 import { RightPanel } from './components/RightPanel';
 import { CenterPanel } from './components/CenterPanel';
 import MitreMatrix from './components/MitreMatrix';
-import { INITIAL_JOBS, INITIAL_UPGRADES, INITIAL_UNLOCKABLES, INITIAL_SOFTWARE, LEVEL_THRESHOLDS, KILL_CHAIN_PHASES, VAULT_LAYOUT, PRE_WAR_NEWS, THREAT_CONFIG, LIFESTYLE_CONFIG, STOCK_MARKET_COMPANIES, TARGET_REGISTRY, FACTION_DEFINITIONS, INITIAL_ACHIEVEMENTS, CONSUMABLES, MUTATIONS } from './constants';
-import { GameState, Job, LogEntry, Target, SkillName, Special, CorpData, PlayerActivity, EconomyState, Bounty, Faction, Message, Mutation, ActiveEffect } from './types';
+import { INITIAL_JOBS, INITIAL_UPGRADES, INITIAL_UNLOCKABLES, INITIAL_SOFTWARE, LEVEL_THRESHOLDS, KILL_CHAIN_PHASES, VAULT_LAYOUT, SKILL_DEFINITIONS, PRE_WAR_NEWS, THREAT_CONFIG, LIFESTYLE_CONFIG, STOCK_MARKET_COMPANIES, TARGET_REGISTRY, TECHNIQUE_DETAILS, CORPORATE_LADDER, SPECIAL_TOOLTIPS, FACTION_DEFINITIONS, INITIAL_ACHIEVEMENTS, LORE_TIMELINE, SOFTWARE_TOOLTIPS, CONSUMABLES, MUTATIONS, RANDOM_FIRST_NAMES, RANDOM_LAST_NAMES, RANDOM_NICKNAMES } from './constants';
+import { GameState, Job, LogEntry, Target, SkillName, Special, CorpData, PlayerActivity, EconomyState, Bounty, Faction, Achievement, Message, Consumable, Mutation, ActiveEffect, Peer } from './types';
 import { 
   Globe, LayoutDashboard, Terminal, ShoppingCart, Map, Menu
 } from 'lucide-react';
@@ -61,11 +61,30 @@ const rollDice = (exploding: boolean = true): { total: number, rolls: number[] }
     return { total, rolls };
 };
 
+// BOT GENERATION
+const generateBot = (level: number): Peer => {
+    const first = RANDOM_FIRST_NAMES[Math.floor(Math.random() * RANDOM_FIRST_NAMES.length)];
+    const last = RANDOM_LAST_NAMES[Math.floor(Math.random() * RANDOM_LAST_NAMES.length)];
+    const nick = RANDOM_NICKNAMES[Math.floor(Math.random() * RANDOM_NICKNAMES.length)];
+    
+    return {
+        id: `bot-${Date.now()}-${Math.random()}`,
+        name: `${nick}`,
+        level: Math.max(1, level + Math.floor(Math.random() * 5) - 2),
+        heat: Math.floor(Math.random() * 30),
+        maxHeat: 100,
+        status: 'HACKING',
+        activity: 'Initializing...',
+        needsHelp: false,
+        avatarId: Math.floor(Math.random() * 10)
+    };
+};
+
 const App: React.FC = () => {
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [activeTab, setActiveTab] = useState<'SPECIAL' | 'SKILLS' | 'INTEL' | 'FACTIONS'>('SPECIAL');
   const [activeShopTab, setActiveShopTab] = useState<'HARDWARE' | 'SOFTWARE' | 'MARKET' | 'SYSTEM' | 'AID' | 'LIFESTYLE'>('HARDWARE');
-  const [activeCenterTab, setActiveCenterTab] = useState<'TERMINAL' | 'INBOX' | 'DATABASE'>('TERMINAL');
+  const [activeCenterTab, setActiveCenterTab] = useState<'TERMINAL' | 'INBOX' | 'DATABASE' | 'NETWORK'>('TERMINAL');
   
   // Mobile Navigation State
   const [mobileTab, setMobileTab] = useState<'STATUS' | 'TERMINAL' | 'SUPPLY' | 'VISUAL'>('TERMINAL');
@@ -250,7 +269,8 @@ const App: React.FC = () => {
       activeEffects: [],
       mutations: [],
       playerRadiation: 0,
-      addictions: []
+      addictions: [],
+      peers: [] 
     });
     lastPhaseRef.current = -1;
   };
@@ -508,6 +528,38 @@ const App: React.FC = () => {
         let newInventory = { ...prev.inventory };
         let newShopStock = { ...prev.shopStock };
 
+        // Bot Management
+        let newPeers = [...prev.peers];
+        if (Math.random() > 0.95 && newPeers.length < 4) { // 5% chance to spawn bot if slots available
+            const bot = generateBot(prev.level);
+            newPeers.push(bot);
+            logsToAdd.push({ id: Date.now(), timestamp: "NETWORK", message: `Node Connected: ${bot.name}`, type: 'network' });
+        }
+        
+        // Update Bot Stats
+        newPeers = newPeers.map(bot => {
+            if (bot.status === 'LOCKED') return bot; // Stuck until help or timeout logic (not imp here)
+            
+            let bh = bot.heat;
+            let bs = bot.status;
+            let ba = bot.activity;
+            let bhelp = bot.needsHelp;
+
+            if (Math.random() > 0.7) bh += 5; // Bots gain heat
+            if (bh > 85) bhelp = true;
+            if (bh >= 100) {
+                 bs = 'LOCKED';
+                 ba = 'CRITICAL FAILURE';
+                 bh = 100;
+            } else {
+                if (Math.random() > 0.9) {
+                    const activities = ["Brute-forcing...", "Injecting payload...", "Analyzing packets...", "Compiling worm..."];
+                    ba = activities[Math.floor(Math.random() * activities.length)];
+                }
+            }
+            return { ...bot, heat: bh, status: bs, activity: ba, needsHelp: bhelp };
+        });
+
         // Mutation Check
         if (Math.floor(newPlayerRadiation / 200) > Math.floor(prev.playerRadiation / 200)) {
             if (Math.random() > 0.5) { // 50% chance
@@ -596,7 +648,7 @@ const App: React.FC = () => {
                      logsToAdd.push({ id: Date.now(), timestamp: "ACHIEVEMENT", message: "Unlocked: Meltdown", type: 'success' });
                  }
 
-                 return { ...prev, gameTime: newTime, currentActivity: activity, heat: 100, isDowntime: true, downtimeEndTime: Date.now() + downtimeMs, logs: [...prev.logs, ...logsToAdd].slice(-50), achievements: newAchievements };
+                 return { ...prev, gameTime: newTime, currentActivity: activity, heat: 100, isDowntime: true, downtimeEndTime: Date.now() + downtimeMs, logs: [...prev.logs, ...logsToAdd].slice(-50), achievements: newAchievements, peers: newPeers };
             }
 
             newProgress += speed;
@@ -735,7 +787,8 @@ const App: React.FC = () => {
             software: newSoftware,
             inventory: newInventory,
             shopStock: newShopStock,
-            lastRestockDay: newLastRestockDay
+            lastRestockDay: newLastRestockDay,
+            peers: newPeers
         };
     });
 
@@ -748,6 +801,24 @@ const App: React.FC = () => {
   }, [gameState ? true : false, updateGame]); 
 
   // --- INTERACTION HANDLERS ---
+  const aidPeer = (peerId: string) => {
+      setGameState(prev => {
+          if (!prev) return null;
+          const peerIndex = prev.peers.findIndex(p => p.id === peerId);
+          if (peerIndex === -1) return prev;
+          
+          const peers = [...prev.peers];
+          peers[peerIndex] = { ...peers[peerIndex], heat: Math.max(0, peers[peerIndex].heat - 30), needsHelp: false, status: 'HACKING', activity: 'Heat flushed by user.' };
+          
+          return {
+              ...prev,
+              peers,
+              cash: prev.cash + 50,
+              logs: [...prev.logs, { id: Date.now(), timestamp: "NETWORK", message: `Assisted ${peers[peerIndex].name}. Reward: 50C`, type: 'success' } as LogEntry].slice(-50)
+          };
+      });
+  };
+
   const buyUpgrade = (upgradeId: string) => {
     setGameState(prev => {
         if(!prev) return null;
@@ -1000,6 +1071,7 @@ const App: React.FC = () => {
                     handleMouseEnter={handleMouseEnter}
                     handleMouseLeave={handleMouseLeave}
                     onCommand={handleCommand}
+                    onAid={aidPeer}
                 />
             </div>
 

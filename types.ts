@@ -96,7 +96,7 @@ export interface LogEntry {
   id: number;
   timestamp: string;
   message: string;
-  type: 'info' | 'success' | 'warning' | 'error' | 'system' | 'phase' | 'bounty' | 'story' | 'mutation';
+  type: 'info' | 'success' | 'warning' | 'error' | 'system' | 'phase' | 'bounty' | 'story' | 'mutation' | 'network';
 }
 
 export interface Target {
@@ -220,6 +220,18 @@ export interface ActiveEffect {
     effects: Consumable['effects'];
 }
 
+export interface Peer {
+    id: string;
+    name: string;
+    level: number;
+    heat: number;
+    maxHeat: number;
+    status: 'IDLE' | 'HACKING' | 'LOCKED' | 'DOWNTIME';
+    activity: string; // "Cracking Bank...", "Compiling...", etc.
+    needsHelp: boolean;
+    avatarId: number;
+}
+
 export interface GameState {
   cash: number;
   xp: number;
@@ -293,6 +305,9 @@ export interface GameState {
   playerRadiation: number; // 0-1000, affects stats/max heat
   addictions: string[]; // Consumable IDs
   
+  // Multiplayer
+  peers: Peer[];
+
   // Meta
   uiColor: string;
   tutorialStep: number; // 0 = done
