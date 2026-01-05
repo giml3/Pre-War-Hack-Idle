@@ -307,9 +307,9 @@ const App: React.FC = () => {
                  }
             }
         }
-        // Radiation Drift
+        // Radiation Drift - SLOWED DOWN BY 60X
         if (Math.random() > 0.7) {
-            radiationChange += 0.5;
+            radiationChange += (0.5 / 60);
         }
 
         // Shop Restock (2 weeks)
@@ -407,12 +407,12 @@ const App: React.FC = () => {
         }
     }
 
-    // Player Radiation Accumulation
+    // Player Radiation Accumulation - SLOWED DOWN BY 60X
     if (activity !== 'DOWNTIME' && Math.random() > 0.5) {
         const radExposure = Math.max(1, currentState.globalRadiation / 10);
         const lifestyleConfig = LIFESTYLE_CONFIG.find(l => l.level === newLifestyleLevel) || LIFESTYLE_CONFIG[0];
         const lifestyleMod = Math.max(0, (6 - lifestyleConfig.level) * 0.4); 
-        playerRadChange += radExposure * (1 + lifestyleMod);
+        playerRadChange += (radExposure * (1 + lifestyleMod)) / 60;
     }
 
     if (activity === 'JOB') {
